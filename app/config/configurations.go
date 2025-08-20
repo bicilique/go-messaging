@@ -15,11 +15,13 @@ type Configurations struct {
 
 func LoadConfigurations() *Configurations {
 
-	err := godotenv.Load()
-	if err != nil {
-		panic("Error loading .env file")
-	}
+	if os.Getenv("DEVELOPER_HOST") == "true" {
+		err := godotenv.Load()
+		if err != nil {
+			panic("Error loading .env file")
+		}
 
+	}
 	return &Configurations{
 		PORT:               os.Getenv("PORT"),
 		MODE:               os.Getenv("MODE"),
