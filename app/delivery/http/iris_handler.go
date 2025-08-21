@@ -31,8 +31,8 @@ func (h *IrisHandler) SendTelegramMessage(c *gin.Context) {
 		return
 	}
 
-	// Call the Telegram service to send a message
-	err := h.TelegramService.SendMessage(req.ChatID, req.Message)
+	// Call the Telegram service to send a message using the helper method for string chat IDs
+	err := h.TelegramService.SendMessageByStringID(req.ChatID, req.Message)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to send message",
