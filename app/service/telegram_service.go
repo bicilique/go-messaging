@@ -77,8 +77,9 @@ func (s *TelegramService) SendIocMessage(chatID string, payload model.IocPayload
 	slog.Info("Attempting to send message to chat ID", "chatID", chatIDInt)
 	msg, err := s.BotInstance.SendMessage(ctx,
 		&bot.SendMessageParams{
-			ChatID: chatIDInt,
-			Text:   util.FormatIocMessage(payload),
+			ChatID:    chatIDInt,
+			Text:      util.FormatIocMessage(payload),
+			ParseMode: "MarkdownV2", // Use Markdown V2 for formatting
 		})
 
 	if err != nil {

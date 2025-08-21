@@ -3,9 +3,34 @@ package util
 import (
 	"fmt"
 	"go-messaging/model"
+	"strings"
 )
 
-func FormatIocMessage(ioc model.IocPayload) string {
+func escapeMarkdownV2(text string) string {
+	replacer := strings.NewReplacer(
+		"_", "\\_",
+		"*", "\\*",
+		"[", "\\[",
+		"]", "\\]",
+		"(", "\\(",
+		")", "\\)",
+		"~", "\\~",
+		"`", "\\`",
+		">", "\\>",
+		"#", "\\#",
+		"+", "\\+",
+		"-", "\\-",
+		"=", "\\=",
+		"|", "\\|",
+		"{", "\\{",
+		"}", "\\}",
+		".", "\\.",
+		"!", "\\!",
+	)
+	return replacer.Replace(text)
+}
+
+func FormatIocMessage(payload model.IocPayload) string {
 	return fmt.Sprintf(
 		"*🔔 New IOC Received*\n\n"+
 			"*ID:* `%s`\n"+
@@ -13,12 +38,12 @@ func FormatIocMessage(ioc model.IocPayload) string {
 			"*Type:* `%s`\n"+
 			"*Description:* %s\n"+
 			"*Case ID:* `%s`\n"+
-			"*Link:* [Open in IRIS](%s)\n",
-		ioc.ID,
-		ioc.Value,
-		ioc.Type,
-		ioc.Description,
-		ioc.CaseID,
-		ioc.Link,
+			"*Link:* [Open in IRIS](%s)",
+		escapeMarkdownV2(payload.ID),
+		escapeMarkdownV2(payload.Value),
+		escapeMarkdownV2(payload.Type),
+		escapeMarkdownV2(payload.Description),
+		escapeMarkdownV2(payload.CaseID),
+		escapeMarkdownV2(payload.Link),
 	)
 }
