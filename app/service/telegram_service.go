@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"go-messaging/model"
+	"go-messaging/util"
 	"log"
 	"log/slog"
 	"strconv"
@@ -16,6 +18,7 @@ type TelegramService struct {
 }
 type TelegramServiceInterface interface {
 	SendMessage(chatID int64, message string) error
+	SendIocMessage(chatID string, payload model.IocPayload) error
 }
 
 func NewTelegramService(botToken string) *TelegramService {
@@ -50,6 +53,32 @@ func (s *TelegramService) SendMessage(chatID string, message string) error {
 		&bot.SendMessageParams{
 			ChatID: chatIDInt,
 			Text:   message,
+		})
+
+	if err != nil {
+		slog.Error("Failed to send message", "error", err)
+	}
+
+	slog.Info("Message sent successfully!", "messageID", msg.ID)
+	return nil
+}
+
+func (s *TelegramService) SendIocMessage(chatID string, payload model.IocPayload) error {
+	chatIDInt, err := validateChatID(chatID)
+	if err != nil {
+		return err
+	}
+
+	// Create a context with a timeout for the API call.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Send the message using the bot instance
+	slog.Info("Attempting to send message to chat ID", "chatID", chatIDInt)
+	msg, err := s.BotInstance.SendMessage(ctx,
+		&bot.SendMessageParams{
+			ChatID: chatIDInt,
+			Text:   util.FormatIocMessage(payload),
 		})
 
 	if err != nil {
