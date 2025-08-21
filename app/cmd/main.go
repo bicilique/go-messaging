@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -59,6 +60,13 @@ func main() {
 
 		slog.Info("Received shutdown signal, stopping services...")
 		cancel() // This will stop the Telegram polling
+
+		// Give some time for graceful shutdown
+		go func() {
+			time.Sleep(5 * time.Second)
+			slog.Info("Force exiting...")
+			os.Exit(0)
+		}()
 	}()
 
 	// Start server
