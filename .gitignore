@@ -80,3 +80,8 @@ Temporary Items
 iris/test-config.json
 app/.env
 .env
+app/go-messaging
+app/go-messaging-race
+app/model/RateLimiter_test.go
+app/model/MessageValidator.go
+app/service/telegram_service_test.go

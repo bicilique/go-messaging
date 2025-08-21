@@ -11,15 +11,19 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-telegram/bot"
 )
 
+// TelegramService provides methods to interact with the Telegram Bot API
 type TelegramService struct {
-	BotInstance *bot.Bot
-	baseURL     string
-	client      *http.Client
+	BotInstance      *bot.Bot
+	baseURL          string
+	client           *http.Client
+	rateLimiter      *model.RateLimiter
+	messageValidator *model.MessageValidator
 }
 type TelegramServiceInterface interface {
 	SendMessage(chatID int64, message string) error
@@ -31,17 +35,16 @@ func NewTelegramService(botToken string) *TelegramService {
 	if botToken == "" {
 		panic("TELEGRAM BOT TOKEN environment variable not set.")
 	}
-
-	// Create a new bot instance using the provided token.
 	botInstance, err := bot.New(botToken)
 	if err != nil {
 		log.Fatalf("Failed to create bot: %v", err)
 	}
-
 	return &TelegramService{
-		BotInstance: botInstance,
-		baseURL:     fmt.Sprintf("https://api.telegram.org/bot%s", botToken),
-		client:      &http.Client{Timeout: 35 * time.Second},
+		BotInstance:      botInstance,
+		baseURL:          fmt.Sprintf("https://api.telegram.org/bot%s", botToken),
+		client:           &http.Client{Timeout: 35 * time.Second},
+		rateLimiter:      model.NewRateLimiter(),
+		messageValidator: model.NewMessageValidator(),
 	}
 }
 
@@ -56,8 +59,13 @@ func (s *TelegramService) StartPolling(ctx context.Context) {
 				slog.Info("Stopping Telegram bot polling...")
 				return
 			default:
-				updates, err := s.getUpdates(offset)
+				updates, err := s.getUpdates(ctx, offset)
 				if err != nil {
+					// Check if error is due to context cancellation
+					if ctx.Err() != nil {
+						slog.Info("Context cancelled, stopping polling...")
+						return
+					}
 					slog.Error("Error getting updates", "error", err)
 					time.Sleep(3 * time.Second)
 					continue
@@ -74,12 +82,11 @@ func (s *TelegramService) StartPolling(ctx context.Context) {
 	}()
 }
 
+// SendMessage sends a message to a specified chat ID
 func (s *TelegramService) SendMessage(chatID int64, message string) error {
-	// Create a context with a timeout for the API call.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Send the message using the bot instance
 	slog.Info("Attempting to send message to chat ID", "chatID", chatID)
 	msg, err := s.BotInstance.SendMessage(ctx,
 		&bot.SendMessageParams{
@@ -155,11 +162,17 @@ func validateChatID(chatID string) (int64, error) {
 	return chatIDInt, nil
 }
 
-// getUpdates retrieves updates from the Telegram API
-func (t *TelegramService) getUpdates(offset int) ([]model.Update, error) {
-	url := fmt.Sprintf("%s/getUpdates?offset=%d&timeout=30", t.baseURL, offset)
+// getUpdates retrieves updates from the Telegram API with context support
+func (t *TelegramService) getUpdates(ctx context.Context, offset int) ([]model.Update, error) {
+	url := fmt.Sprintf("%s/getUpdates?offset=%d&timeout=10", t.baseURL, offset)
 
-	resp, err := t.client.Get(url)
+	// Create request with context
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := t.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +203,27 @@ func (s *TelegramService) handleUpdate(update model.Update) {
 
 	message := update.Message
 
+	// Check rate limiting first
+	allowed, limitMsg := s.rateLimiter.IsAllowed(int64(message.From.ID))
+	if !allowed {
+		s.SendMessage(message.Chat.ID, limitMsg)
+		slog.Warn("Rate limit exceeded",
+			"userID", message.From.ID,
+			"username", message.From.Username)
+		return
+	}
+
+	// Validate message length using the validator
+	valid, validationMsg := s.messageValidator.ValidateLength(*message)
+	if !valid {
+		s.SendMessage(message.Chat.ID, validationMsg)
+		slog.Warn("Message validation failed",
+			"userID", message.From.ID,
+			"username", message.From.Username,
+			"length", len(message.Text))
+		return
+	}
+
 	// Check if it's a command
 	if message.Text != "" && message.Text[0] == '/' {
 		s.handleCommand(*message)
@@ -198,18 +232,72 @@ func (s *TelegramService) handleUpdate(update model.Update) {
 	}
 }
 
-func (t *TelegramService) handleCommand(message model.Message) {
-	switch message.Text {
+func (s *TelegramService) handleCommand(message model.Message) {
+	// Extract command and arguments
+	parts := strings.Fields(message.Text)
+	command := parts[0]
+
+	switch command {
 	case "/start":
-		t.SendMessage(message.Chat.ID, "🤖 Welcome! Bot started successfully.\n\nAvailable commands:\n/start - Start the bot\n/help - Show help")
+		welcomeMsg := "🤖 Welcome! Bot started successfully.\n\n" +
+			"📋 Available commands:\n" +
+			"/start - Start the bot\n" +
+			"/help - Show help\n" +
+			"/limits - Show message limits\n" +
+			"/status - Bot status\n" +
+			"/info - Bot information\n\n" +
+			"💬 Just send me any message and I'll echo it back!"
+		s.SendMessage(message.Chat.ID, welcomeMsg)
+
 	case "/help":
-		t.SendMessage(message.Chat.ID, "📋 Available commands:\n/start - Start the bot\n/help - Show this help\n\nJust send me any message and I'll echo it back!")
+		helpMsg := "📋 Available commands:\n" +
+			"/start - Start the bot\n" +
+			"/help - Show this help\n" +
+			"/limits - Show message limits\n" +
+			"/status - Bot status\n" +
+			"/info - Bot information\n\n" +
+			"💬 Send me any text message and I'll echo it back!"
+		s.SendMessage(message.Chat.ID, helpMsg)
+
+	case "/limits":
+		// Get limits info from helpers
+		msgLimits := s.messageValidator.GetLimitsInfo()
+		rateLimits := s.rateLimiter.GetStats()
+
+		limitsMsg := fmt.Sprintf("📏 Message Limits:\n\n"+
+			"• Regular messages: %d characters max\n"+
+			"• Commands: %d characters max\n"+
+			"• Telegram limit: %d characters max\n"+
+			"• Rate limit: %d messages per minute\n"+
+			"• Minimum interval: %v between messages\n\n"+
+			"📊 Your last message: %d characters\n"+
+			"👥 Active users being tracked: %d",
+			msgLimits["regular_messages"], msgLimits["commands"], msgLimits["telegram_max"],
+			rateLimits["messages_limit"], rateLimits["min_interval"], len(message.Text),
+			rateLimits["active_users"])
+		s.SendMessage(message.Chat.ID, limitsMsg)
+
+	case "/status":
+		s.SendMessage(message.Chat.ID, "🟢 Bot is running normally!")
+
+	case "/info":
+		s.SendMessage(message.Chat.ID, "ℹ️ Go Messaging Bot v1.0\n🔧 With rate limiting and message validation")
+
 	default:
-		t.SendMessage(message.Chat.ID, "❓ Unknown command. Type /help for available commands.")
+		s.SendMessage(message.Chat.ID, "❓ Unknown command. Type /help for available commands.")
 	}
 }
 
 func (s *TelegramService) handleMessage(message model.Message) {
-	response := fmt.Sprintf("💬 You said: %s", message.Text)
+	// Show character count for longer messages
+	charCount := len(message.Text)
+	var response string
+
+	if charCount > 100 {
+		response = fmt.Sprintf("💬 You said (%d chars): %s", charCount, message.Text)
+	} else {
+		response = fmt.Sprintf("💬 You said: %s", message.Text)
+	}
+
 	s.SendMessage(message.Chat.ID, response)
 }
