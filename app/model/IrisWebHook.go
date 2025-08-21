@@ -28,3 +28,13 @@ type Field struct {
 type Footer struct {
 	Text string `json:"text"`
 }
+
+// SendMessageRequest is the structure for sending a message to Telegram.
+type IocPayload struct {
+	ID          string `json:"id"`
+	Value       string `json:"value"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	CaseID      string `json:"case_id"`
+	Link        string `json:"link"`
+}
