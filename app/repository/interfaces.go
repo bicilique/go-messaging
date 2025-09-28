@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"go-messaging/entity"
+
+	"github.com/google/uuid"
 )
 
 // UserRepository defines the interface for user data access
@@ -11,7 +13,7 @@ type UserRepository interface {
 	Create(ctx context.Context, user *entity.User) error
 
 	// GetByID retrieves a user by ID
-	GetByID(ctx context.Context, id int64) (*entity.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error)
 
 	// GetByTelegramUserID retrieves a user by Telegram user ID
 	GetByTelegramUserID(ctx context.Context, telegramUserID int64) (*entity.User, error)
@@ -20,7 +22,7 @@ type UserRepository interface {
 	Update(ctx context.Context, user *entity.User) error
 
 	// Delete deletes a user by ID
-	Delete(ctx context.Context, id int64) error
+	Delete(ctx context.Context, id uuid.UUID) error
 
 	// List retrieves all users with pagination
 	List(ctx context.Context, offset, limit int) ([]*entity.User, error)
@@ -59,10 +61,10 @@ type SubscriptionRepository interface {
 	GetByID(ctx context.Context, id int64) (*entity.Subscription, error)
 
 	// GetByUserID retrieves all subscriptions for a user
-	GetByUserID(ctx context.Context, userID int64) ([]*entity.Subscription, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) ([]*entity.Subscription, error)
 
 	// GetByUserAndType retrieves a subscription by user ID and notification type ID
-	GetByUserAndType(ctx context.Context, userID int64, notificationTypeID int) (*entity.Subscription, error)
+	GetByUserAndType(ctx context.Context, userID uuid.UUID, notificationTypeID int) (*entity.Subscription, error)
 
 	// GetActiveByChatID retrieves all active subscriptions for a chat
 	GetActiveByChatID(ctx context.Context, chatID int64) ([]*entity.Subscription, error)
@@ -83,7 +85,7 @@ type SubscriptionRepository interface {
 	Delete(ctx context.Context, id int64) error
 
 	// DeleteByUserAndType deletes a subscription by user ID and notification type ID
-	DeleteByUserAndType(ctx context.Context, userID int64, notificationTypeID int) error
+	DeleteByUserAndType(ctx context.Context, userID uuid.UUID, notificationTypeID int) error
 }
 
 // NotificationLogRepository defines the interface for notification log data access

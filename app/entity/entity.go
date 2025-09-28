@@ -3,10 +3,12 @@ package entity
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type User struct {
-	ID             int64     `json:"id" gorm:"primaryKey"`
+	ID             uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	TelegramUserID int64     `json:"telegram_user_id" gorm:"uniqueIndex;not null"`
 	Username       *string   `json:"username"`
 	FirstName      *string   `json:"first_name"`
@@ -44,7 +46,7 @@ type SubscriptionPreferences struct {
 
 type Subscription struct {
 	ID                 int64                   `json:"id" gorm:"primaryKey"`
-	UserID             int64                   `json:"user_id" gorm:"not null;index"`
+	UserID             uuid.UUID               `json:"user_id" gorm:"type:uuid;not null;index"`
 	ChatID             int64                   `json:"chat_id" gorm:"not null;index"`
 	NotificationTypeID int                     `json:"notification_type_id" gorm:"not null;index"`
 	IsActive           bool                    `json:"is_active" gorm:"default:true;index"`

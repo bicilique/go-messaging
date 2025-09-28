@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"go-messaging/entity"
+
+	"github.com/google/uuid"
 )
 
 // SubscriptionService defines the interface for subscription business logic
@@ -38,7 +40,7 @@ type UserService interface {
 	GetUserByTelegramID(ctx context.Context, telegramUserID int64) (*entity.User, error)
 
 	// GetUserByID retrieves a user by ID
-	GetUserByID(ctx context.Context, id int64) (*entity.User, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (*entity.User, error)
 
 	// UpdateUser updates user information
 	UpdateUser(ctx context.Context, user *entity.User) error

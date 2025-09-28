@@ -12,7 +12,7 @@ RUN go mod download
 COPY app/ .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o messaging-app ./cmd/main.go
 
 # Run stage
 FROM alpine:latest
@@ -26,7 +26,7 @@ WORKDIR /app
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Copy binary from builder stage
-COPY --from=builder /app/app .
+COPY --from=builder /app/messaging-app .
 
 # Change ownership and switch to non-root user
 RUN chown -R appuser:appgroup /app
@@ -34,4 +34,4 @@ USER appuser
 
 EXPOSE 8080
 
-CMD ["./app"]
+CMD ["./messaging-app"]

@@ -27,6 +27,7 @@ type TelegramService struct {
 }
 type TelegramServiceInterface interface {
 	SendMessage(chatID int64, message string) error
+	SendMessageByStringID(chatID string, message string) error
 	SendIocMessage(chatID string, payload model.IocPayload) error
 	StartPolling(ctx context.Context)
 }
