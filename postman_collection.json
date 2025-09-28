@@ -1,0 +1,104 @@
+{
+  "info": {
+    "name": "Go Messaging UserHandler API",
+    "description": "Postman collection for UserHandler endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create or Update User",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"telegram_user_id\": 123456789,\n  \"username\": \"johndoe\",\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"language_code\": \"en\",\n  \"is_bot\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "users"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get User by ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "users", "{{userId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get User by Telegram ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/telegram/{{telegramUserId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "users", "telegram", "{{telegramUserId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update User",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"janedoe\",\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Doe\",\n  \"language_code\": \"id\",\n  \"is_bot\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "users", "{{userId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete User by Telegram ID",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users/telegram/{{telegramUserId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "users", "telegram", "{{telegramUserId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "List Users (Paginated)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/users?page=1&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "users"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "10" }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "userId", "value": "replace-with-uuid" },
+    { "key": "telegramUserId", "value": "123456789" }
+  ]
+}

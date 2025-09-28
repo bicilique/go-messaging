@@ -5,6 +5,7 @@ import (
 
 	"go-messaging/entity"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -22,9 +23,9 @@ func (r *GormUserRepository) Create(ctx context.Context, user *entity.User) erro
 	return r.db.WithContext(ctx).Create(user).Error
 }
 
-func (r *GormUserRepository) GetByID(ctx context.Context, id int64) (*entity.User, error) {
+func (r *GormUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
 	var user entity.User
-	err := r.db.WithContext(ctx).First(&user, id).Error
+	err := r.db.WithContext(ctx).First(&user, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -44,8 +45,8 @@ func (r *GormUserRepository) Update(ctx context.Context, user *entity.User) erro
 	return r.db.WithContext(ctx).Save(user).Error
 }
 
-func (r *GormUserRepository) Delete(ctx context.Context, id int64) error {
-	return r.db.WithContext(ctx).Delete(&entity.User{}, id).Error
+func (r *GormUserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&entity.User{}, "id = ?", id).Error
 }
 
 func (r *GormUserRepository) List(ctx context.Context, offset, limit int) ([]*entity.User, error) {

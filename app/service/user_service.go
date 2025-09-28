@@ -8,6 +8,7 @@ import (
 	"go-messaging/entity"
 	"go-messaging/repository"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -75,7 +76,7 @@ func (s *UserServiceImpl) GetUserByTelegramID(ctx context.Context, telegramUserI
 	return user, nil
 }
 
-func (s *UserServiceImpl) GetUserByID(ctx context.Context, id int64) (*entity.User, error) {
+func (s *UserServiceImpl) GetUserByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {

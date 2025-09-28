@@ -6,6 +6,7 @@ import (
 
 	"go-messaging/entity"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -35,7 +36,7 @@ func (r *GormSubscriptionRepository) GetByID(ctx context.Context, id int64) (*en
 	return &subscription, nil
 }
 
-func (r *GormSubscriptionRepository) GetByUserID(ctx context.Context, userID int64) ([]*entity.Subscription, error) {
+func (r *GormSubscriptionRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]*entity.Subscription, error) {
 	var subscriptions []*entity.Subscription
 	err := r.db.WithContext(ctx).
 		Preload("NotificationType").
@@ -44,7 +45,7 @@ func (r *GormSubscriptionRepository) GetByUserID(ctx context.Context, userID int
 	return subscriptions, err
 }
 
-func (r *GormSubscriptionRepository) GetByUserAndType(ctx context.Context, userID int64, notificationTypeID int) (*entity.Subscription, error) {
+func (r *GormSubscriptionRepository) GetByUserAndType(ctx context.Context, userID uuid.UUID, notificationTypeID int) (*entity.Subscription, error) {
 	var subscription entity.Subscription
 	err := r.db.WithContext(ctx).
 		Preload("User").
@@ -115,7 +116,7 @@ func (r *GormSubscriptionRepository) Delete(ctx context.Context, id int64) error
 	return r.db.WithContext(ctx).Delete(&entity.Subscription{}, id).Error
 }
 
-func (r *GormSubscriptionRepository) DeleteByUserAndType(ctx context.Context, userID int64, notificationTypeID int) error {
+func (r *GormSubscriptionRepository) DeleteByUserAndType(ctx context.Context, userID uuid.UUID, notificationTypeID int) error {
 	return r.db.WithContext(ctx).
 		Where("user_id = ? AND notification_type_id = ?", userID, notificationTypeID).
 		Delete(&entity.Subscription{}).Error

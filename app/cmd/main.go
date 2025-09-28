@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,15 +11,58 @@ import (
 
 	"go-messaging/config"
 	"go-messaging/database"
+	httpDelivery "go-messaging/delivery/http"
+	"go-messaging/internal/scheduler"
 	"go-messaging/repository"
 	"go-messaging/service"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	// Load configuration
 	cfg := config.LoadConfigurations()
 
-	// Setup database connection
+	// Setup database
+	db, err := setupDatabase(cfg)
+	if err != nil {
+		log.Fatalf("Failed to setup database: %v", err)
+	}
+	defer db.Close()
+
+	// Initialize repositories
+	repos := initializeRepositories(db)
+
+	// Initialize services
+	services := initializeServices(repos, cfg)
+
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Setup HTTP server
+	httpServer := setupHTTPServer(services)
+
+	// Setup graceful shutdown
+	setupGracefulShutdown(cancel)
+
+	// Start notification scheduler
+	go startNotificationScheduler(ctx, services.NotificationDispatch)
+
+	// Start Telegram bot
+	go func() {
+		log.Printf("🚀 Starting Telegram Bot (Token: %s...)", cfg.TELEGRAM_BOT_TOKEN[:10])
+		services.TelegramBot.StartPolling(ctx)
+	}()
+
+	// Start HTTP server
+	startHTTPServer(ctx, httpServer)
+
+	log.Println("👋 Application stopped")
+}
+
+// setupDatabase initializes and migrates the database
+func setupDatabase(cfg *config.Configurations) (*database.Database, error) {
 	dbConfig := database.Config{
 		Host:     cfg.DB_HOST,
 		Port:     cfg.DB_PORT,
@@ -28,64 +72,150 @@ func main() {
 		SSLMode:  cfg.DB_SSLMODE,
 	}
 
-	// Initialize database connection
 	db, err := database.NewDatabase(dbConfig)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		return nil, err
 	}
-	defer db.Close()
-
 	log.Println("✅ Database connected successfully")
 
-	// Run migrations
 	if err := db.AutoMigrate(); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		return nil, err
 	}
 	log.Println("✅ Database migrations completed")
 
-	// Seed default data
 	if err := db.Seed(); err != nil {
-		log.Fatalf("Failed to seed database: %v", err)
+		return nil, err
 	}
 	log.Println("✅ Database seeded with default notification types")
 
-	// Initialize repositories
-	userRepo := repository.NewUserRepository(db.Connection)
-	notificationTypeRepo := repository.NewNotificationTypeRepository(db.Connection)
-	subscriptionRepo := repository.NewSubscriptionRepository(db.Connection)
-	notificationLogRepo := repository.NewNotificationLogRepository(db.Connection)
+	return db, nil
+}
 
-	// Initialize services
-	userService := service.NewUserService(userRepo)
-	notificationTypeService := service.NewNotificationTypeService(notificationTypeRepo)
+// Repositories holds all repository instances
+type Repositories struct {
+	User             repository.UserRepository
+	NotificationType repository.NotificationTypeRepository
+	Subscription     repository.SubscriptionRepository
+	NotificationLog  repository.NotificationLogRepository
+}
+
+// initializeRepositories creates all repository instances
+func initializeRepositories(db *database.Database) *Repositories {
+	return &Repositories{
+		User:             repository.NewUserRepository(db.Connection),
+		NotificationType: repository.NewNotificationTypeRepository(db.Connection),
+		Subscription:     repository.NewSubscriptionRepository(db.Connection),
+		NotificationLog:  repository.NewNotificationLogRepository(db.Connection),
+	}
+}
+
+// Services holds all service instances
+type Services struct {
+	User                 service.UserService
+	NotificationType     service.NotificationTypeService
+	Subscription         service.SubscriptionService
+	NotificationLog      service.NotificationLogService
+	TelegramBot          *service.TelegramBotService
+	TelegramService      *service.TelegramService
+	NotificationDispatch service.NotificationDispatchService
+}
+
+// initializeServices creates all service instances
+func initializeServices(repos *Repositories, cfg *config.Configurations) *Services {
+	userService := service.NewUserService(repos.User)
+	notificationTypeService := service.NewNotificationTypeService(repos.NotificationType)
 	subscriptionService := service.NewSubscriptionService(
-		subscriptionRepo,
-		userRepo,
-		notificationTypeRepo,
-		notificationLogRepo,
+		repos.Subscription,
+		repos.User,
+		repos.NotificationType,
+		repos.NotificationLog,
 	)
-	notificationLogService := service.NewNotificationLogService(notificationLogRepo)
+	notificationLogService := service.NewNotificationLogService(repos.NotificationLog)
 
-	// Initialize Telegram bot service
-	telegramService := service.NewTelegramBotService(
+	// Create the main Telegram bot service
+	telegramBotService := service.NewTelegramBotService(
 		cfg.TELEGRAM_BOT_TOKEN,
 		userService,
 		subscriptionService,
 		notificationTypeService,
 	)
 
-	// Initialize notification dispatch service
+	// Create the Telegram service for HTTP handlers
+	telegramService := service.NewTelegramService(cfg.TELEGRAM_BOT_TOKEN)
+
 	notificationDispatchService := service.NewNotificationDispatchService(
 		subscriptionService,
 		notificationLogService,
-		telegramService, // Telegram service implements TelegramNotificationSender interface
+		telegramBotService,
 	)
 
-	// Create context for graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
+	return &Services{
+		User:                 userService,
+		NotificationType:     notificationTypeService,
+		Subscription:         subscriptionService,
+		NotificationLog:      notificationLogService,
+		TelegramBot:          telegramBotService,
+		TelegramService:      telegramService,
+		NotificationDispatch: notificationDispatchService,
+	}
+}
+
+// setupHTTPServer creates and configures the HTTP server
+func setupHTTPServer(services *Services) *http.Server {
+	router := gin.Default()
+
+	// Add middleware
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
+
+	// Initialize handlers
+	userHandler := httpDelivery.NewUserHandler(services.User)
+
+	// Setup routes
+	routeConfig := &httpDelivery.RouteConfig{
+		Router:      router,
+		UserHandler: userHandler,
+	}
+	routeConfig.Setup()
+
+	return &http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
+}
+
+// startHTTPServer starts the HTTP server with graceful shutdown
+func startHTTPServer(ctx context.Context, server *http.Server) {
+	go func() {
+		log.Printf("🌐 Starting HTTP server on %s", server.Addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start HTTP server: %v", err)
+		}
+	}()
+
+	// Wait for context cancellation
+	<-ctx.Done()
+
+	// Graceful shutdown with timeout
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Handle shutdown signals
+	log.Println("🛑 Shutting down HTTP server...")
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("❌ HTTP server forced to shutdown: %v", err)
+	} else {
+		log.Println("✅ HTTP server stopped gracefully")
+	}
+}
+
+// startNotificationScheduler starts the notification scheduling service
+func startNotificationScheduler(ctx context.Context, dispatchService service.NotificationDispatchService) {
+	notificationScheduler := scheduler.NewNotificationScheduler(dispatchService)
+	notificationScheduler.Start(ctx)
+}
+
+// setupGracefulShutdown sets up signal handling for graceful shutdown
+func setupGracefulShutdown(cancel context.CancelFunc) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -94,64 +224,4 @@ func main() {
 		log.Println("🛑 Received shutdown signal, shutting down gracefully...")
 		cancel()
 	}()
-
-	// Start the bot
-	log.Printf("🚀 Starting Telegram Bot (Token: %s...)", cfg.TELEGRAM_BOT_TOKEN[:10])
-
-	// Start notification scheduler in a separate goroutine
-	go startNotificationScheduler(ctx, notificationDispatchService)
-
-	// Start the Telegram bot (this will block until context is cancelled)
-	telegramService.StartPolling(ctx)
-
-	log.Println("👋 Application stopped")
-}
-
-// startNotificationScheduler runs periodic notification dispatching
-func startNotificationScheduler(ctx context.Context, dispatchService service.NotificationDispatchService) {
-	log.Println("📡 Starting notification scheduler...")
-
-	// Notification types and their dispatch intervals (in minutes)
-	notificationSchedule := map[string]int{
-		"coinbase":    1, // Every 1 minute
-		"news":        2, // Every 2 minutes
-		"weather":     4, // Every 4 minutes
-		"price_alert": 5, // Every 5 minute for testing (change back to 5+ for production)
-		"custom":      6, // Every 6 minutes
-	}
-
-	// Start individual schedulers for each notification type
-	for notificationType, intervalMinutes := range notificationSchedule {
-		go runNotificationSchedule(ctx, dispatchService, notificationType, intervalMinutes)
-	}
-
-	// Wait for context cancellation
-	<-ctx.Done()
-	log.Println("📡 Notification scheduler stopped")
-}
-
-// runNotificationSchedule runs a scheduler for a specific notification type
-func runNotificationSchedule(ctx context.Context, dispatchService service.NotificationDispatchService, notificationType string, intervalMinutes int) {
-	log.Printf("⏰ Starting %s notification scheduler (every %d minutes)", notificationType, intervalMinutes)
-
-	ticker := time.NewTicker(time.Duration(intervalMinutes) * time.Minute)
-	defer ticker.Stop()
-
-	// For development: Don't run immediately on startup, wait for first interval
-	log.Printf("⏳ Waiting %d minutes before first %s notification...", intervalMinutes, notificationType)
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Printf("⏰ %s notification scheduler stopped", notificationType)
-			return
-		case <-ticker.C:
-			log.Printf("🔔 Time to dispatch %s notifications!", notificationType)
-			if err := dispatchService.DispatchNotification(ctx, notificationType); err != nil {
-				log.Printf("❌ Failed to dispatch %s notifications: %v", notificationType, err)
-			} else {
-				log.Printf("✅ Dispatched %s notifications", notificationType)
-			}
-		}
-	}
 }

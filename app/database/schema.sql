@@ -1,9 +1,12 @@
 -- Create database (run this manually)
 -- CREATE DATABASE go_messaging;
 
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Users table to store user information
 CREATE TABLE IF NOT EXISTS users (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     telegram_user_id BIGINT NOT NULL,
     username VARCHAR(255),
     first_name VARCHAR(255),
@@ -35,7 +38,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_types_code ON notification_ty
 -- Subscriptions table to store user subscriptions
 CREATE TABLE IF NOT EXISTS subscriptions (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     chat_id BIGINT NOT NULL,
     notification_type_id INTEGER NOT NULL REFERENCES notification_types(id),
     is_active BOOLEAN DEFAULT TRUE,
