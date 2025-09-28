@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"go-messaging/entity"
+	"go-messaging/model"
 
 	"github.com/google/uuid"
 )
@@ -107,4 +108,8 @@ type NotificationDispatchService interface {
 
 	// GetNotificationContent generates content for a notification type
 	GetNotificationContent(ctx context.Context, notificationTypeCode string, preferences *entity.SubscriptionPreferences) (string, error)
+}
+
+type DetectionInterface interface {
+	SendDetectionNotification(ctx context.Context, request model.DetectionSummary) error
 }
