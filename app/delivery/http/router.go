@@ -3,17 +3,14 @@ package http
 import "github.com/gin-gonic/gin"
 
 type RouteConfig struct {
-	Router         *gin.Engine
-	UserHandler    *UserHandler
-	AdminHandler   *AdminHandler
-	AuthMiddleware *BasicAuthMiddleware
+	Router           *gin.Engine
+	UserHandler      *UserHandler
+	AdminHandler     *AdminHandler
+	AuthMiddleware   *BasicAuthMiddleware
+	DetectionHandler *DetectionHandler
 }
 
 func (c *RouteConfig) Setup() {
-	// Iris webhook routes
-	// c.Router.POST("/iris/send-message", c.IrisHandler.SendTelegramMessage)
-	// c.Router.POST("/iris/send-notification", c.IrisHandler.SendTelegramNotification)
-
 	// API v1 routes
 	v1 := c.Router.Group("/api/v1")
 	{
@@ -50,6 +47,14 @@ func (c *RouteConfig) Setup() {
 				admin.POST("/users/:userID/enable", c.AdminHandler.EnableUser)
 				admin.GET("/stats", c.AdminHandler.GetUserStats)
 				admin.POST("/cleanup", c.AdminHandler.CleanupPendingUsers)
+			}
+		}
+
+		// Detection routes
+		if c.DetectionHandler != nil {
+			detection := v1.Group("/detection")
+			{
+				detection.POST("/notify", c.DetectionHandler.SendDetectionNotification)
 			}
 		}
 	}

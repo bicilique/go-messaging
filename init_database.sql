@@ -9,7 +9,7 @@
 -- In production, you should change these credentials immediately
 INSERT INTO api_credentials (username, password_hash, role, is_active) VALUES
 ('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMye6vKH.h.0KJ3f4.e7.e8Qs6S4K9Z6jWG', 'admin', true),
-('moderator', '$2a$10$N9qo8uLOickgx2ZMRZoMye6vKH.h.0KJ3f4.e7.e8Qs6S4K9Z6jWG', 'moderator', true)
+-- ('moderator', '$2a$10$N9qo8uLOickgx2ZMRZoMye6vKH.h.0KJ3f4.e7.e8Qs6S4K9Z6jWG', 'moderator', true)
 ON CONFLICT (username) DO NOTHING;
 
 -- ================================
@@ -31,24 +31,21 @@ INSERT INTO users (
     approved_at
 ) VALUES
 -- IMPORTANT: Replace 123456789 with your actual Telegram User ID
-(123456789, 'main_admin', 'Main', 'Admin', 'admin', 'approved', NOW()),
--- Add more admin users as needed
-(987654321, 'secondary_admin', 'Secondary', 'Admin', 'admin', 'approved', NOW())
+(630499194, 'afif', 'afif', 'faizianur', 'admin', 'approved', NOW()),
 ON CONFLICT (telegram_user_id) DO UPDATE SET
     role = EXCLUDED.role,
     approval_status = EXCLUDED.approval_status,
     approved_at = EXCLUDED.approved_at;
-
 -- ================================
 -- NOTIFICATION TYPES SETUP
 -- ================================
 
 -- Ensure notification types are properly set up
 INSERT INTO notification_types (code, name, description, default_interval_minutes, is_active) VALUES
-('system', 'System Notifications', 'Important system alerts and updates', 1, true),
-('security', 'Security Alerts', 'Security-related notifications', 1, true),
-('maintenance', 'Maintenance Alerts', 'Scheduled maintenance notifications', 60, true),
-('general', 'General Notifications', 'General purpose notifications', 5, true)
+-- ('maintenance', 'Maintenance Alerts', 'Scheduled maintenance notifications', 60, true),
+-- ('system', 'System Notifications', 'Important system alerts and updates', 1, true),
+('security', 'Security Alerts', 'Security-related notifications', 9223372036854775807, true), 
+('general', 'General Notifications', 'General purpose notifications', 9223372036854775807, true)
 ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,

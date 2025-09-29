@@ -84,13 +84,13 @@ CREATE INDEX IF NOT EXISTS idx_notification_logs_subscription_id ON notification
 CREATE INDEX IF NOT EXISTS idx_notification_logs_sent_at ON notification_logs(sent_at);
 
 -- Insert default notification types
-INSERT INTO notification_types (code, name, description, default_interval_minutes) VALUES
-('coinbase', 'Coinbase Alerts', 'Cryptocurrency price updates and market alerts', 1),
-('news', 'News Alerts', 'Breaking news and important updates', 2),
-('weather', 'Weather Updates', 'Weather forecasts and alerts', 4),
-('price_alert', 'Price Alerts', 'Custom price threshold notifications', 5),
-('custom', 'Custom Notifications', 'Custom notifications for specific needs', 6)
-ON CONFLICT (code) DO NOTHING;
+-- INSERT INTO notification_types (code, name, description, default_interval_minutes) VALUES
+-- ('coinbase', 'Coinbase Alerts', 'Cryptocurrency price updates and market alerts', 1),
+-- ('news', 'News Alerts', 'Breaking news and important updates', 2),
+-- ('weather', 'Weather Updates', 'Weather forecasts and alerts', 4),
+-- ('price_alert', 'Price Alerts', 'Custom price threshold notifications', 5),
+-- ('custom', 'Custom Notifications', 'Custom notifications for specific needs', 6)
+-- ON CONFLICT (code) DO NOTHING;
 
 -- Update triggers for updated_at timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()

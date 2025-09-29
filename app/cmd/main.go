@@ -87,11 +87,11 @@ func setupDatabase(cfg *config.Configurations) (*database.Database, error) {
 	}
 	log.Println("✅ Database migrations completed")
 
-	if err := db.Seed(); err != nil {
-		return nil, err
-	}
-	log.Println("✅ Database seeded with default notification types")
-
+	// Disable seeding for now
+	// if err := db.Seed(); err != nil {
+	// 	return nil, err
+	// }
+	// log.Println("✅ Database seeded with default notification types")
 	return db, nil
 }
 
@@ -122,6 +122,7 @@ type Services struct {
 	Admin                service.AdminServiceInterface
 	TelegramBot          *service.TelegramBotService
 	NotificationDispatch service.NotificationDispatchService
+	Detection            service.DetectionInterface
 }
 
 // initializeServices creates all service instances
@@ -147,11 +148,18 @@ func initializeServices(repos *Repositories, cfg *config.Configurations) *Servic
 		notificationTypeService,
 		adminService,
 	)
-
+	// Create notification dispatch service
 	notificationDispatchService := service.NewNotificationDispatchService(
 		subscriptionService,
 		notificationLogService,
 		telegramBotService,
+	)
+
+	// Create detection service
+	detectionService := service.NewDetectionService(
+		notificationDispatchService,
+		repos.Subscription,
+		repos.NotificationType,
 	)
 
 	return &Services{
@@ -162,6 +170,7 @@ func initializeServices(repos *Repositories, cfg *config.Configurations) *Servic
 		Admin:                adminService,
 		TelegramBot:          telegramBotService,
 		NotificationDispatch: notificationDispatchService,
+		Detection:            detectionService,
 	}
 }
 
@@ -177,13 +186,15 @@ func setupHTTPServer(services *Services, db *database.Database) *http.Server {
 	userHandler := httpDelivery.NewUserHandler(services.User)
 	adminHandler := httpDelivery.NewAdminHandler(services.Admin)
 	authMiddleware := httpDelivery.NewBasicAuthMiddleware(db.Connection)
+	detectionHandler := httpDelivery.NewDetectionHandler(services.Detection)
 
 	// Setup routes
 	routeConfig := &httpDelivery.RouteConfig{
-		Router:         router,
-		UserHandler:    userHandler,
-		AdminHandler:   adminHandler,
-		AuthMiddleware: authMiddleware,
+		Router:           router,
+		UserHandler:      userHandler,
+		AdminHandler:     adminHandler,
+		AuthMiddleware:   authMiddleware,
+		DetectionHandler: detectionHandler,
 	}
 	routeConfig.Setup()
 
