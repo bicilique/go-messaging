@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"go-messaging/entity"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -26,6 +27,14 @@ type UserRepository interface {
 
 	// List retrieves all users with pagination
 	List(ctx context.Context, offset, limit int) ([]*entity.User, error)
+
+	// Admin-specific methods
+	GetUsersByApprovalStatus(ctx context.Context, status string) ([]entity.User, error)
+	GetUsersByApprovalStatusWithLimit(ctx context.Context, status string, limit int) ([]entity.User, error)
+	CountUsersByApprovalStatus(ctx context.Context, status string) (int64, error)
+	CountUsersByRole(ctx context.Context, role string) (int64, error)
+	CountAll(ctx context.Context) (int64, error)
+	DeletePendingUsersOlderThan(ctx context.Context, duration time.Duration) (int, error)
 }
 
 // NotificationTypeRepository defines the interface for notification type data access

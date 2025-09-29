@@ -53,6 +53,11 @@ func (m *MockUserService) ListUsers(ctx context.Context, offset, limit int) ([]*
 	return args.Get(0).([]*entity.User), args.Error(1)
 }
 
+func (m *MockUserService) CountUsers(ctx context.Context) (int64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 func TestUserHandler_CreateUser(t *testing.T) {
 	// Setup
 	gin.SetMode(gin.TestMode)

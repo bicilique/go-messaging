@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"go-messaging/entity"
+	"go-messaging/model"
 
 	"github.com/google/uuid"
 )
@@ -50,6 +51,9 @@ type UserService interface {
 
 	// ListUsers retrieves users with pagination
 	ListUsers(ctx context.Context, offset, limit int) ([]*entity.User, error)
+
+	// CountUsers returns the total number of users
+	CountUsers(ctx context.Context) (int64, error)
 }
 
 // NotificationTypeService defines the interface for notification type business logic
@@ -107,4 +111,8 @@ type NotificationDispatchService interface {
 
 	// GetNotificationContent generates content for a notification type
 	GetNotificationContent(ctx context.Context, notificationTypeCode string, preferences *entity.SubscriptionPreferences) (string, error)
+}
+
+type DetectionInterface interface {
+	SendDetectionNotification(ctx context.Context, request model.DetectionSummary) error
 }

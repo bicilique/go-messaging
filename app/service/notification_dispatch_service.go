@@ -20,6 +20,8 @@ type NotificationDispatchServiceImpl struct {
 // TelegramNotificationSender defines interface for sending Telegram messages
 type TelegramNotificationSender interface {
 	SendMessage(chatID int64, message string) error
+	SendMessageWithKeyboard(chatID int64, message string, keyboard model.InlineKeyboardMarkup) error
+	AnswerCallbackQuery(callbackID, text string) error
 }
 
 // NewNotificationDispatchService creates a new notification dispatch service

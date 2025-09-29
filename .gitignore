@@ -87,3 +87,7 @@ app/service/telegram_service_test.go
 .env.example
 app/entity/entity_test.go
 REFACTORING_README.md
+
+
+data/db
+data/base
