@@ -80,9 +80,9 @@ func NewDatabaseFromEnv() (*Database, error) {
 // AutoMigrate runs database migrations
 func (d *Database) AutoMigrate() error {
 	// Handle constraint conflicts gracefully
-	if err := d.handleConstraintConflicts(); err != nil {
-		log.Printf("Warning: Failed to handle constraint conflicts: %v", err)
-	}
+	// if err := d.handleConstraintConflicts(); err != nil {
+	// 	log.Printf("Warning: Failed to handle constraint conflicts: %v", err)
+	// }
 
 	return d.Connection.AutoMigrate(
 		&entity.User{},

@@ -3,7 +3,6 @@ package scheduler
 import (
 	"context"
 	"log"
-	"time"
 
 	"go-messaging/service"
 )
@@ -16,12 +15,12 @@ type NotificationScheduler struct {
 func NewNotificationScheduler(dispatchService service.NotificationDispatchService) *NotificationScheduler {
 	return &NotificationScheduler{
 		dispatchService: dispatchService,
-		schedule: map[string]int{
-			"coinbase":    1, // Every 1 minute
-			"news":        2, // Every 2 minutes
-			"weather":     4, // Every 4 minutes
-			"price_alert": 5, // Every 5 minutes for testing (change back to 5+ for production)
-			"custom":      6, // Every 6 minutes
+		schedule:        map[string]int{
+			// "coinbase":    1, // Every 1 minute
+			// "news":        2, // Every 2 minutes
+			// "weather":     4, // Every 4 minutes
+			// "price_alert": 5, // Every 5 minutes for testing (change back to 5+ for production)
+			// "custom":      6, // Every 6 minutes
 		},
 	}
 }
@@ -49,24 +48,24 @@ func (ns *NotificationScheduler) Start(ctx context.Context) {
 func (ns *NotificationScheduler) runNotificationSchedule(ctx context.Context, notificationType string, intervalMinutes int) {
 	log.Printf("⏰ Starting %s notification scheduler (every %d minutes)", notificationType, intervalMinutes)
 
-	ticker := time.NewTicker(time.Duration(intervalMinutes) * time.Minute)
-	defer ticker.Stop()
+	// ticker := time.NewTicker(time.Duration(intervalMinutes) * time.Minute)
+	// defer ticker.Stop()
 
-	// For development: Don't run immediately on startup, wait for first interval
-	log.Printf("⏳ Waiting %d minutes before first %s notification...", intervalMinutes, notificationType)
+	// // For development: Don't run immediately on startup, wait for first interval
+	// log.Printf("⏳ Waiting %d minutes before first %s notification...", intervalMinutes, notificationType)
 
-	for {
-		select {
-		case <-ctx.Done():
-			log.Printf("⏰ %s notification scheduler stopped", notificationType)
-			return
-		case <-ticker.C:
-			log.Printf("🔔 Time to dispatch %s notifications!", notificationType)
-			if err := ns.dispatchService.DispatchNotification(ctx, notificationType); err != nil {
-				log.Printf("❌ Failed to dispatch %s notifications: %v", notificationType, err)
-			} else {
-				log.Printf("✅ Dispatched %s notifications", notificationType)
-			}
-		}
-	}
+	// for {
+	// 	select {
+	// 	case <-ctx.Done():
+	// 		log.Printf("⏰ %s notification scheduler stopped", notificationType)
+	// 		return
+	// 	case <-ticker.C:
+	// 		log.Printf("🔔 Time to dispatch %s notifications!", notificationType)
+	// 		if err := ns.dispatchService.DispatchNotification(ctx, notificationType); err != nil {
+	// 			log.Printf("❌ Failed to dispatch %s notifications: %v", notificationType, err)
+	// 		} else {
+	// 			log.Printf("✅ Dispatched %s notifications", notificationType)
+	// 		}
+	// 	}
+	// }
 }

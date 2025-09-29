@@ -2,20 +2,22 @@ package http
 
 import (
 	"crypto/subtle"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type APICredential struct {
-	ID           int    `json:"id" gorm:"primaryKey"`
-	Username     string `json:"username" gorm:"uniqueIndex;not null"`
-	PasswordHash string `json:"-" gorm:"not null"`
-	Role         string `json:"role" gorm:"default:'admin'"`
-	IsActive     bool   `json:"is_active" gorm:"default:true"`
+	ID           uuid.UUID `json:"id" gorm:"primaryKey"`
+	Username     string    `json:"username" gorm:"uniqueIndex;not null"`
+	PasswordHash string    `json:"-" gorm:"not null"`
+	Role         string    `json:"role" gorm:"default:'admin'"`
+	IsActive     bool      `json:"is_active" gorm:"default:true"`
 }
 
 func (APICredential) TableName() string {
@@ -106,6 +108,7 @@ func (m *BasicAuthMiddleware) requireAuth(c *gin.Context) {
 	c.Abort()
 }
 
+// validateCredentials checks the provided username and password against the database
 func (m *BasicAuthMiddleware) validateCredentials(username, password string) bool {
 	var cred APICredential
 	err := m.db.Where("username = ? AND is_active = ?", username, true).First(&cred).Error
@@ -115,18 +118,25 @@ func (m *BasicAuthMiddleware) validateCredentials(username, password string) boo
 
 	// Compare password hash
 	err = bcrypt.CompareHashAndPassword([]byte(cred.PasswordHash), []byte(password))
+	if err != nil {
+		fmt.Printf("[DEBUG] bcrypt error: %v\n", err)
+	}
 	return err == nil
 }
 
+// validateAdminCredentials checks the provided username and password and ensures the user has admin role
 func (m *BasicAuthMiddleware) validateAdminCredentials(username, password string) bool {
 	var cred APICredential
+
 	err := m.db.Where("username = ? AND is_active = ? AND role = ?", username, true, "admin").First(&cred).Error
 	if err != nil {
 		return false
 	}
 
-	// Compare password hash
 	err = bcrypt.CompareHashAndPassword([]byte(cred.PasswordHash), []byte(password))
+	if err != nil {
+		fmt.Printf("[DEBUG] bcrypt error: %v\n", err)
+	}
 	return err == nil
 }
 

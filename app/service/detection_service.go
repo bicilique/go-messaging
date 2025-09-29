@@ -66,7 +66,7 @@ func (s *DetectionService) SendDetectionNotification(ctx context.Context, reques
 }
 func (s *DetectionService) generateTelegramMessage(request model.DetectionSummary) string {
 	message := "🔍 *Detection Summary*\n"
-	message += "━━━━━━━━━━━━━━━━━━━━━━\n"
+	message += "━━━━━━━━━━━━━━━━━━━━━━\n\n"
 	message += "📄 *Filename*: `" + request.Filename + "`\n"
 	message += "🏷️ *Classification*: *" + request.Classification + "*\n"
 	message += "⚠️ *Risk Level*: *" + request.RiskLevel + "*\n"
@@ -80,8 +80,7 @@ func (s *DetectionService) generateTelegramMessage(request model.DetectionSummar
 		}
 		message += "\n"
 	}
-	message += "⏱️ *Processing Time*: " + request.ProcessingTime + "\n"
+	message += "⏱️ *Processing Time*: " + request.ProcessingTime + "\n\n"
 	message += "━━━━━━━━━━━━━━━━━━━━━━"
-
 	return message
 }

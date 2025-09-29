@@ -199,7 +199,7 @@ func setupHTTPServer(services *Services, db *database.Database) *http.Server {
 	routeConfig.Setup()
 
 	return &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + os.Getenv("PORT"),
 		Handler: router,
 	}
 }
