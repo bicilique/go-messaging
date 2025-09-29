@@ -117,3 +117,11 @@ func (s *UserServiceImpl) ListUsers(ctx context.Context, offset, limit int) ([]*
 	}
 	return users, nil
 }
+
+func (s *UserServiceImpl) CountUsers(ctx context.Context) (int64, error) {
+	count, err := s.userRepo.CountAll(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count users: %w", err)
+	}
+	return count, nil
+}

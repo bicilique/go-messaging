@@ -23,6 +23,8 @@ type TelegramBotService struct {
 	userService             UserService
 	subscriptionService     SubscriptionService
 	notificationTypeService NotificationTypeService
+	adminService            AdminServiceInterface
+	telegramAdminService    *TelegramAdminService
 }
 
 // TelegramBotServiceInterface defines the interface for telegram bot operations
@@ -38,6 +40,7 @@ func NewTelegramBotService(
 	userService UserService,
 	subscriptionService SubscriptionService,
 	notificationTypeService NotificationTypeService,
+	adminService AdminServiceInterface,
 ) *TelegramBotService {
 	if botToken == "" {
 		panic("TELEGRAM BOT TOKEN environment variable not set.")
@@ -48,14 +51,23 @@ func NewTelegramBotService(
 		log.Fatalf("Failed to create bot: %v", err)
 	}
 
-	return &TelegramBotService{
+	service := &TelegramBotService{
 		botInstance:             botInstance,
 		rateLimiter:             model.NewRateLimiter(),
 		messageValidator:        model.NewMessageValidator(),
 		userService:             userService,
 		subscriptionService:     subscriptionService,
 		notificationTypeService: notificationTypeService,
+		adminService:            adminService,
 	}
+
+	// Initialize telegram admin service
+	if userService != nil && adminService != nil {
+		// Use the TelegramBotService itself as it implements TelegramNotificationSender
+		service.telegramAdminService = NewTelegramAdminService(service, adminService, userService)
+	}
+
+	return service
 }
 
 // SendMessage sends a message to a specific chat
@@ -90,12 +102,25 @@ func (ts *TelegramBotService) StartPolling(ctx context.Context) {
 		ts.HandleUpdate(ctx, b, update)
 	})
 
+	// Register handler for callback queries
+	ts.botInstance.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil
+	}, func(ctx context.Context, b *bot.Bot, update *models.Update) {
+		ts.HandleUpdate(ctx, b, update)
+	})
+
 	ts.botInstance.Start(ctx)
 }
 
 // HandleUpdate processes incoming updates from Telegram
 func (ts *TelegramBotService) HandleUpdate(ctx context.Context, b *bot.Bot, update *models.Update) {
 	log.Printf("Received update: %+v", update)
+
+	// Handle callback queries first
+	if update.CallbackQuery != nil {
+		ts.handleCallbackQuery(ctx, update.CallbackQuery)
+		return
+	}
 
 	if update.Message == nil {
 		log.Println("Update message is nil, skipping")
@@ -179,6 +204,9 @@ func (ts *TelegramBotService) handleCommand(ctx context.Context, chatID, userID 
 		ts.handleListCommand(ctx, chatID, userID)
 	case "/types":
 		ts.handleTypesCommand(ctx, chatID, userID)
+	case "/admin":
+		slog.Info("[DEBUG] /admin command detected in TelegramBotService", "userID", userID, "chatID", chatID)
+		ts.handleAdminCommand(ctx, chatID, userID, command)
 	default:
 		ts.SendMessage(chatID, "❓ Unknown command. Type /help to see available commands.")
 	}
@@ -188,24 +216,49 @@ func (ts *TelegramBotService) handleCommand(ctx context.Context, chatID, userID 
 func (ts *TelegramBotService) handleStartCommand(ctx context.Context, chatID, userID int64) {
 	log.Printf("Handling /start command for user %d in chat %d", userID, chatID)
 
-	message := `🤖 Welcome to the Notification Bot!
+	message := `🤖 Welcome to Go Messaging Bot!
 
 I can send you notifications for various services including:
-• Cryptocurrency prices
-• News updates  
-• Weather information
-• Custom alerts
+• 🪙 Cryptocurrency prices
+• 📰 News updates  
+• 🌤️ Weather information
+• 🔔 Custom alerts
 
 Available Commands:
-/help - Show this help message
-/types - List all available notification types
-/subscribe <type> - Subscribe to notifications
-/unsubscribe <type> - Unsubscribe from notifications
-/list - Show your current subscriptions
+• /types - List all notification types
+• /subscribe <type> - Subscribe to notifications
+• /unsubscribe <type> - Unsubscribe from notifications
+• /list - Show your subscriptions
+• /help - Show help menu
 
-Type /types to see what notifications you can subscribe to!`
+Examples:
+• /subscribe coinbase - Get crypto updates
+• /subscribe news - Get news notifications
+• /unsubscribe weather - Stop weather updates`
 
-	err := ts.SendMessage(chatID, message)
+	// Create inline keyboard with quick actions
+	keyboard := model.InlineKeyboardMarkup{
+		InlineKeyboard: [][]model.InlineKeyboardButton{
+			{
+				{Text: "📋 View Types", CallbackData: "types:all"},
+				{Text: "📱 My Subscriptions", CallbackData: "list:mine"},
+			},
+			{
+				{Text: "❓ Help", CallbackData: "help:main"},
+			},
+		},
+	}
+
+	// Check if user is admin and add admin button
+	if ts.userService != nil {
+		if user, err := ts.userService.GetUserByTelegramID(ctx, userID); err == nil && user.Role == "admin" {
+			keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []model.InlineKeyboardButton{
+				{Text: "🔧 Admin Panel", CallbackData: "admin:main"},
+			})
+		}
+	}
+
+	err := ts.SendMessageWithKeyboard(chatID, message, keyboard)
 	if err != nil {
 		log.Printf("Failed to send start message: %v", err)
 	} else {
@@ -215,27 +268,55 @@ Type /types to see what notifications you can subscribe to!`
 
 // handleHelpCommand handles the /help command
 func (ts *TelegramBotService) handleHelpCommand(ctx context.Context, chatID, userID int64) {
-	message := `📚 Bot Commands Help
+	message := `📚 Help & Support
 
-Basic Commands:
-/start - Welcome message and bot introduction
-/help - Show this help message
-/types - List all available notification types
+Getting Started:
+1. Use /start to see the main menu
+2. Browse available notification types
+3. Subscribe to notifications you want!
+
+Main Commands:
+• /start - Welcome message and bot introduction
+• /help - Show this help message  
+• /types - List all notification types
 
 Subscription Management:
-/subscribe <type> - Subscribe to a notification type
-/unsubscribe <type> - Unsubscribe from a notification type
-/list - Show your current subscriptions
+• /subscribe <type> - Subscribe to notifications
+• /unsubscribe <type> - Unsubscribe from notifications
+• /list - Show your current subscriptions
 
 Examples:
-/subscribe coinbase - Get crypto price updates
-/subscribe news - Get news notifications
-/subscribe weather - Get weather updates
-/unsubscribe coinbase - Stop crypto notifications
+• /subscribe coinbase - Get crypto updates
+• /subscribe news - Get news notifications
+• /subscribe weather - Get weather updates
+• /unsubscribe coinbase - Stop crypto notifications`
 
-Type /types to see all available notification types!`
+	// Create help keyboard
+	keyboard := model.InlineKeyboardMarkup{
+		InlineKeyboard: [][]model.InlineKeyboardButton{
+			{
+				{Text: "📋 View Types", CallbackData: "types:all"},
+				{Text: "📱 My Subscriptions", CallbackData: "list:mine"},
+			},
+		},
+	}
 
-	ts.SendMessage(chatID, message)
+	// Check if user is admin and add admin commands
+	if ts.userService != nil {
+		if user, err := ts.userService.GetUserByTelegramID(ctx, userID); err == nil && user.Role == "admin" {
+			message += `
+
+🔧 Admin Commands:
+• /admin - Access admin panel for user management`
+
+			// Add admin button
+			keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []model.InlineKeyboardButton{
+				{Text: "🔧 Admin Panel", CallbackData: "admin:main"},
+			})
+		}
+	}
+
+	ts.SendMessageWithKeyboard(chatID, message, keyboard)
 }
 
 // handleSubscribeCommand handles the /subscribe command
@@ -343,21 +424,33 @@ func (ts *TelegramBotService) handleListCommand(ctx context.Context, chatID, use
 
 You're not subscribed to any notifications yet.
 
-Type /types to see available notification types, then use /subscribe <type> to get started!`
-		ts.SendMessage(chatID, message)
+Use the buttons below to get started!`
+
+		keyboard := model.InlineKeyboardMarkup{
+			InlineKeyboard: [][]model.InlineKeyboardButton{
+				{
+					{Text: "📋 View Available Types", CallbackData: "types:all"},
+				},
+				{
+					{Text: "❓ Help", CallbackData: "help:main"},
+				},
+			},
+		}
+		ts.SendMessageWithKeyboard(chatID, message, keyboard)
 		return
 	}
 
 	var message strings.Builder
-	message.WriteString("📝 Your Active Subscriptions:\n\n")
+	message.WriteString(fmt.Sprintf("📝 Your Active Subscriptions (%d):\n\n", len(subscriptions)))
+
+	// Create keyboard with unsubscribe buttons
+	keyboard := model.InlineKeyboardMarkup{
+		InlineKeyboard: [][]model.InlineKeyboardButton{},
+	}
 
 	for _, sub := range subscriptions {
 		if sub.IsActive {
-			status := "🟢"
-			if !sub.IsActive {
-				status = "🔴"
-			}
-
+			status := "�"
 			interval := "default"
 			if sub.Preferences.Interval > 0 {
 				interval = fmt.Sprintf("%d min", sub.Preferences.Interval)
@@ -366,14 +459,26 @@ Type /types to see available notification types, then use /subscribe <type> to g
 			message.WriteString(fmt.Sprintf("%s %s - %s\n", status, sub.NotificationType.Name, interval))
 
 			if sub.LastNotifiedAt != nil {
-				message.WriteString(fmt.Sprintf("   Last update: %s\n", sub.LastNotifiedAt.Format("Jan 2, 15:04")))
+				message.WriteString(fmt.Sprintf("   📅 Last update: %s\n", sub.LastNotifiedAt.Format("Jan 2, 15:04")))
 			}
 			message.WriteString("\n")
+
+			// Add unsubscribe button for each active subscription
+			keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []model.InlineKeyboardButton{
+				{Text: fmt.Sprintf("❌ Unsubscribe from %s", sub.NotificationType.Name), CallbackData: fmt.Sprintf("unsubscribe:%s", sub.NotificationType.Code)},
+			})
 		}
 	}
 
-	message.WriteString("Use /unsubscribe <type> to stop notifications.")
-	ts.SendMessage(chatID, message.String())
+	message.WriteString("Click the buttons below to unsubscribe, or use `/unsubscribe <type>`")
+
+	// Add navigation buttons
+	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []model.InlineKeyboardButton{
+		{Text: "📋 Browse Types", CallbackData: "types:all"},
+		{Text: "❓ Help", CallbackData: "help:main"},
+	})
+
+	ts.SendMessageWithKeyboard(chatID, message.String(), keyboard)
 }
 
 // handleTypesCommand handles the /types command
@@ -388,18 +493,34 @@ func (ts *TelegramBotService) handleTypesCommand(ctx context.Context, chatID, us
 	var message strings.Builder
 	message.WriteString("📋 Available Notification Types:\n\n")
 
+	// Create keyboard with subscribe buttons
+	keyboard := model.InlineKeyboardMarkup{
+		InlineKeyboard: [][]model.InlineKeyboardButton{},
+	}
+
 	for _, nt := range types {
 		message.WriteString(fmt.Sprintf("🔹 %s (%s)\n", nt.Name, nt.Code))
 		if nt.Description != nil {
 			message.WriteString(fmt.Sprintf("   %s\n", *nt.Description))
 		}
-		message.WriteString(fmt.Sprintf("   Default interval: %d minutes\n\n", nt.DefaultIntervalMinutes))
+		message.WriteString(fmt.Sprintf("   📊 Default interval: %d minutes\n\n", nt.DefaultIntervalMinutes))
+
+		// Add subscribe button for each type
+		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []model.InlineKeyboardButton{
+			{Text: fmt.Sprintf("✅ Subscribe to %s", nt.Name), CallbackData: fmt.Sprintf("subscribe:%s", nt.Code)},
+		})
 	}
 
-	message.WriteString("Use /subscribe <type> to subscribe to any of these notifications.\n")
-	message.WriteString("Example: /subscribe coinbase")
+	message.WriteString("Click the buttons below to subscribe, or use `/subscribe <type>`\n")
+	message.WriteString("Example: `/subscribe coinbase`")
 
-	ts.SendMessage(chatID, message.String())
+	// Add navigation buttons
+	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []model.InlineKeyboardButton{
+		{Text: "📱 My Subscriptions", CallbackData: "list:mine"},
+		{Text: "❓ Help", CallbackData: "help:main"},
+	})
+
+	ts.SendMessageWithKeyboard(chatID, message.String(), keyboard)
 }
 
 // handleMessage processes regular (non-command) messages
@@ -413,6 +534,55 @@ func (ts *TelegramBotService) handleMessage(ctx context.Context, chatID, userID 
 
 	response := responses[int(userID)%len(responses)]
 	ts.SendMessage(chatID, response)
+}
+
+// SendMessageWithKeyboard sends a message with an inline keyboard
+func (ts *TelegramBotService) SendMessageWithKeyboard(chatID int64, message string, keyboard model.InlineKeyboardMarkup) error {
+	// Validate message
+	if err := model.ValidateMessageString(message); err != nil {
+		return fmt.Errorf("message validation failed: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Convert model.InlineKeyboardMarkup to bot package format
+	var botKeyboard [][]models.InlineKeyboardButton
+	for _, row := range keyboard.InlineKeyboard {
+		var botRow []models.InlineKeyboardButton
+		for _, button := range row {
+			botButton := models.InlineKeyboardButton{
+				Text: button.Text,
+			}
+			if button.CallbackData != "" {
+				botButton.CallbackData = button.CallbackData
+			}
+			if button.URL != "" {
+				botButton.URL = button.URL
+			}
+			botRow = append(botRow, botButton)
+		}
+		botKeyboard = append(botKeyboard, botRow)
+	}
+
+	replyMarkup := &models.InlineKeyboardMarkup{
+		InlineKeyboard: botKeyboard,
+	}
+
+	_, err := ts.botInstance.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      chatID,
+		Text:        message,
+		ReplyMarkup: replyMarkup,
+	})
+
+	return err
+}
+
+// AnswerCallbackQuery answers a callback query (public interface method)
+func (ts *TelegramBotService) AnswerCallbackQuery(callbackID, text string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return ts.answerCallbackQuery(ctx, callbackID, text)
 }
 
 // Helper functions
@@ -429,4 +599,165 @@ func getDisplayName(user *entity.User) string {
 		return name
 	}
 	return fmt.Sprintf("User_%d", user.TelegramUserID)
+}
+
+// handleAdminCommand handles admin commands with proper role checking
+func (ts *TelegramBotService) handleAdminCommand(ctx context.Context, chatID, userID int64, command string) {
+	slog.Info("[DEBUG] Admin command received in TelegramBotService", "command", command, "userID", userID)
+
+	if ts.userService == nil {
+		ts.SendMessage(chatID, "❌ User service is not available")
+		return
+	}
+
+	// Check if user exists and has admin role
+	user, err := ts.userService.GetUserByTelegramID(ctx, userID)
+	if err != nil {
+		ts.SendMessage(chatID, "❌ You need to register first. Use /start command.")
+		return
+	}
+
+	if user.Role != "admin" {
+		ts.SendMessage(chatID, "❌ You don't have admin permissions.")
+		slog.Info("Non-admin user attempted admin command", "userID", userID, "role", user.Role)
+		return
+	}
+
+	// Show admin panel with buttons
+	ts.showAdminPanel(ctx, chatID, userID)
+}
+
+// Debug method to check if services are properly initialized
+func (ts *TelegramBotService) CheckAdminServices() {
+	slog.Info("TelegramBotService Admin Services Status",
+		"userService", ts.userService != nil,
+		"adminService", ts.adminService != nil,
+		"telegramAdminService", ts.telegramAdminService != nil,
+	)
+}
+
+// handleCallbackQuery handles callback queries from inline keyboards
+func (ts *TelegramBotService) handleCallbackQuery(ctx context.Context, callbackQuery *models.CallbackQuery) {
+	log.Printf("Received callback query: %s from user %d", callbackQuery.Data, callbackQuery.From.ID)
+
+	// Answer the callback query first
+	ts.answerCallbackQuery(ctx, callbackQuery.ID, "")
+
+	// Parse callback data
+	data := callbackQuery.Data
+	parts := strings.Split(data, ":")
+
+	if len(parts) < 2 {
+		log.Printf("Invalid callback data format: %s", data)
+		return
+	}
+
+	action := parts[0]
+	param := parts[1]
+
+	// Extract chat ID - for callback queries, we need to get it from the original message
+	// For now, let's try to extract it from the From ID (assuming private chat)
+	chatID := callbackQuery.From.ID
+	userID := callbackQuery.From.ID
+
+	switch action {
+	case "subscribe":
+		ts.handleSubscribeCallback(ctx, chatID, userID, param)
+	case "unsubscribe":
+		ts.handleUnsubscribeCallback(ctx, chatID, userID, param)
+	case "list":
+		ts.handleListCommand(ctx, chatID, userID)
+	case "types":
+		ts.handleTypesCommand(ctx, chatID, userID)
+	case "help":
+		ts.handleHelpCommand(ctx, chatID, userID)
+	case "admin":
+		if param == "main" {
+			ts.handleAdminCommand(ctx, chatID, userID, "/admin")
+		} else if param == "pending" || param == "approved" || param == "stats" || param == "cleanup" {
+			ts.handleAdminCallback(ctx, chatID, userID, fmt.Sprintf("/admin_%s", param))
+		} else {
+			ts.handleAdminCallback(ctx, chatID, userID, "/admin")
+		}
+	default:
+		log.Printf("Unknown callback action: %s", action)
+	}
+}
+
+// answerCallbackQuery answers a callback query
+func (ts *TelegramBotService) answerCallbackQuery(ctx context.Context, callbackQueryID, text string) error {
+	_, err := ts.botInstance.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: callbackQueryID,
+		Text:            text,
+	})
+	return err
+}
+
+// handleSubscribeCallback handles subscription via button callback
+func (ts *TelegramBotService) handleSubscribeCallback(ctx context.Context, chatID, userID int64, notificationType string) {
+	log.Printf("Subscribe callback: user %d wants to subscribe to %s", userID, notificationType)
+
+	// Use the existing subscribe logic
+	parts := []string{"/subscribe", notificationType}
+	ts.handleSubscribeCommand(ctx, chatID, userID, parts)
+}
+
+// handleUnsubscribeCallback handles unsubscription via button callback
+func (ts *TelegramBotService) handleUnsubscribeCallback(ctx context.Context, chatID, userID int64, notificationType string) {
+	log.Printf("Unsubscribe callback: user %d wants to unsubscribe from %s", userID, notificationType)
+
+	// Use the existing unsubscribe logic
+	parts := []string{"/unsubscribe", notificationType}
+	ts.handleUnsubscribeCommand(ctx, chatID, userID, parts)
+}
+
+// handleAdminCallback handles admin actions via button callback
+func (ts *TelegramBotService) handleAdminCallback(ctx context.Context, chatID, userID int64, command string) {
+	log.Printf("Admin callback: user %d executed %s", userID, command)
+
+	// Use the existing admin logic
+	ts.handleAdminCommand(ctx, chatID, userID, command)
+}
+
+// showAdminPanel displays the admin panel with buttons
+func (ts *TelegramBotService) showAdminPanel(ctx context.Context, chatID, userID int64) {
+	message := `🔧 Admin Panel
+
+Welcome to the admin panel! Here you can manage users and system settings.
+
+Available Actions:
+• View pending user registrations
+• Manage approved users  
+• View system statistics
+• Perform cleanup operations`
+
+	keyboard := model.InlineKeyboardMarkup{
+		InlineKeyboard: [][]model.InlineKeyboardButton{
+			{
+				{Text: "👥 Pending Users", CallbackData: "admin:pending"},
+				{Text: "✅ Approved Users", CallbackData: "admin:approved"},
+			},
+			{
+				{Text: "📊 Statistics", CallbackData: "admin:stats"},
+				{Text: "🧹 Cleanup", CallbackData: "admin:cleanup"},
+			},
+			{
+				{Text: "🏠 Back to Main Menu", CallbackData: "help:main"},
+			},
+		},
+	}
+
+	if ts.telegramAdminService != nil {
+		// Get some quick stats to show
+		message += `
+
+Quick Actions:
+Use the buttons below to perform admin tasks quickly.`
+	} else {
+		message += `
+
+⚠️ Note: Some admin features may be limited.`
+	}
+
+	ts.SendMessageWithKeyboard(chatID, message, keyboard)
 }

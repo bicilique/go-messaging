@@ -8,18 +8,23 @@ import (
 )
 
 type User struct {
-	ID             uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	TelegramUserID int64     `json:"telegram_user_id" gorm:"uniqueIndex;not null"`
-	Username       *string   `json:"username"`
-	FirstName      *string   `json:"first_name"`
-	LastName       *string   `json:"last_name"`
-	LanguageCode   *string   `json:"language_code"`
-	IsBot          bool      `json:"is_bot" gorm:"default:false"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             uuid.UUID  `json:"id" gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	TelegramUserID int64      `json:"telegram_user_id" gorm:"uniqueIndex;not null"`
+	Username       *string    `json:"username"`
+	FirstName      *string    `json:"first_name"`
+	LastName       *string    `json:"last_name"`
+	LanguageCode   *string    `json:"language_code"`
+	IsBot          bool       `json:"is_bot" gorm:"default:false"`
+	Role           string     `json:"role" gorm:"default:'user';index"`               // 'user', 'admin'
+	ApprovalStatus string     `json:"approval_status" gorm:"default:'pending';index"` // 'pending', 'approved', 'rejected', 'disabled'
+	ApprovedBy     *uuid.UUID `json:"approved_by,omitempty" gorm:"type:uuid;index"`
+	ApprovedAt     *time.Time `json:"approved_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 
 	// Relationships
-	Subscriptions []Subscription `json:"subscriptions,omitempty" gorm:"foreignKey:UserID"`
+	Subscriptions  []Subscription `json:"subscriptions,omitempty" gorm:"foreignKey:UserID"`
+	ApprovedByUser *User          `json:"approved_by_user,omitempty" gorm:"foreignKey:ApprovedBy"`
 }
 
 type NotificationType struct {

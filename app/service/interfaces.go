@@ -51,6 +51,9 @@ type UserService interface {
 
 	// ListUsers retrieves users with pagination
 	ListUsers(ctx context.Context, offset, limit int) ([]*entity.User, error)
+
+	// CountUsers returns the total number of users
+	CountUsers(ctx context.Context) (int64, error)
 }
 
 // NotificationTypeService defines the interface for notification type business logic

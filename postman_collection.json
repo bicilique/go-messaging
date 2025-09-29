@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Go Messaging UserHandler API",
-    "description": "Postman collection for UserHandler endpoints",
+    "name": "Go Messaging API with Admin System",
+    "description": "Postman collection for User and Admin management endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -94,11 +94,143 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "Admin - Create Admin",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"telegram_user_id\": 987654321,\n  \"username\": \"admin_user\",\n  \"first_name\": \"Admin\",\n  \"last_name\": \"User\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/create",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "admin", "create"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Get Pending Users",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/users/pending",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "admin", "users", "pending"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Get Approved Users",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/users/approved?limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "admin", "users", "approved"],
+          "query": [
+            { "key": "limit", "value": "10" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Approve User",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/users/{{targetUserId}}/approve?admin_id={{adminId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "admin", "users", "{{targetUserId}}", "approve"],
+          "query": [
+            { "key": "admin_id", "value": "{{adminId}}" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Reject User",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/users/{{targetUserId}}/reject?admin_id={{adminId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "admin", "users", "{{targetUserId}}", "reject"],
+          "query": [
+            { "key": "admin_id", "value": "{{adminId}}" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Disable User",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/users/{{targetUserId}}/disable?admin_id={{adminId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "admin", "users", "{{targetUserId}}", "disable"],
+          "query": [
+            { "key": "admin_id", "value": "{{adminId}}" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Enable User",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/users/{{targetUserId}}/enable?admin_id={{adminId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "admin", "users", "{{targetUserId}}", "enable"],
+          "query": [
+            { "key": "admin_id", "value": "{{adminId}}" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Get User Stats",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/stats",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "admin", "stats"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Cleanup Pending Users",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/admin/cleanup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "admin", "cleanup"]
+        }
+      },
+      "response": []
     }
   ],
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:8080" },
     { "key": "userId", "value": "replace-with-uuid" },
-    { "key": "telegramUserId", "value": "123456789" }
+    { "key": "telegramUserId", "value": "123456789" },
+    { "key": "adminId", "value": "replace-with-admin-uuid" },
+    { "key": "targetUserId", "value": "replace-with-target-user-uuid" }
   ]
 }

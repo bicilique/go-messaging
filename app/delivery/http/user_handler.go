@@ -306,6 +306,16 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		return
 	}
 
+	// Get total count for pagination
+	totalCount, err := h.userService.CountUsers(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error:   "Failed to count users",
+			Message: err.Error(),
+		})
+		return
+	}
+
 	userResponses := make([]dto.UserResponse, len(users))
 	for i, user := range users {
 		userResponses[i] = h.entityToResponse(user)
@@ -315,7 +325,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		Users: userResponses,
 		Page:  query.Page,
 		Limit: query.Limit,
-		Total: int64(len(users)), // Note: This should be updated to get actual total count
+		Total: totalCount,
 	}
 
 	c.JSON(http.StatusOK, response)

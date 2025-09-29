@@ -1,418 +1,368 @@
-# 🤖 Go Messaging Bot - Smart Notification System
+# Go Messaging Bot - Universal Notification System
 
-> **A modern, extensible Telegram bot that delivers personalized notifications** 
-> 
-> Built with Go + PostgreSQL • Clean Architecture • Production Ready
+A powerful, scalable messaging system built with Go, featuring Telegram bot integration, admin approval system, and comprehensive user management with button-based interactions.
 
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://golang.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-12+-336791?style=flat&logo=postgresql&logoColor=white)](https://postgresql.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+## 🌟 Features
 
----
+### Core Features
+- **🤖 Telegram Bot Integration**: Full-featured bot with inline keyboards and button interactions
+- **👑 Admin Approval System**: Role-based user management with approval workflow
+- **🔐 HTTP Basic Authentication**: Secure API endpoints with database-backed authentication
+- **📱 Button-Based UI**: User-friendly Telegram interface without typing commands
+- **⏰ Auto-Cleanup**: Automatic removal of pending users after 6 hours
+- **🛡️ Rate Limiting**: Prevent spam and abuse
+- **📊 Real-time Statistics**: User and system statistics
+- **🔄 RESTful API**: Complete HTTP API for external integrations
 
-## 🌟 What This Bot Can Do
+### User Experience
+- **No Command Typing**: Interactive button-based menus
+- **Status Tracking**: Real-time approval status updates
+- **Multi-Role Support**: Users and admins with different capabilities
+- **Responsive Design**: Clean, intuitive Telegram interface
 
-- 💰 **Crypto Price Alerts** - Get real-time cryptocurrency updates (BTC, ETH, ADA, DOT)
-- 📰 **News Notifications** - Stay updated with breaking news (filtered by keywords)
-- 🌤️ **Weather Updates** - Receive weather forecasts and alerts (location-based)
-- 🚨 **Price Alerts** - Custom threshold notifications with configurable currency and threshold
-- 🔔 **Custom Notifications** - Create your own alert types with custom messages
+### Admin Features
+- **Telegram Admin Panel**: Manage users directly through Telegram
+- **HTTP Admin API**: RESTful endpoints for admin operations
+- **Bulk Operations**: Approve, reject, disable users efficiently
+- **User Statistics**: Monitor system usage and user growth
+- **Audit Trail**: Track admin actions with timestamps
 
-**Features:**
-- ✅ **Parallel Scheduling** - All notification types run independently
-- ✅ **Rate Limiting** - Prevents spam and abuse
-- ✅ **User Management** - Automatic user creation and preference storage
-- ✅ **Subscription Management** - Easy subscribe/unsubscribe with `/list` command
-- ✅ **Development Mode** - Frequent notifications for testing (current)
-- ✅ **Production Ready** - Easy switch to production intervals
-
-**Simply text `/subscribe coinbase` and start receiving crypto updates!**
-
----
-
-## 🚀 Quick Setup (5 Minutes)
-
-### Step 1: Get Your Bot Ready
-1. Message [@BotFather](https://t.me/botfather) on Telegram
-2. Create a new bot with `/newbot`
-3. Copy your bot token (looks like `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`)
-
-### Step 2: Setup Database
-```sql
--- Create PostgreSQL database
-CREATE DATABASE go_messaging;
-CREATE USER bot_user WITH PASSWORD 'your_secure_password';
-GRANT ALL PRIVILEGES ON DATABASE go_messaging TO bot_user;
-```
-
-### Step 3: Clone & Configure
-```bash
-# Download the project
-git clone https://github.com/your-repo/go-messaging.git
-cd go-messaging/app
-
-# Setup environment
-cp .env.example .env
-# Edit .env with your bot token and database info
-```
-
-### Step 4: Run!
-```bash
-go run ./cmd
-```
-
-🎉 **That's it!** Your bot is now live and ready to accept subscriptions!
-
----
-
-## 🏗️ How It Works
-
-This bot uses **Clean Architecture** for maximum maintainability:
+## 🏗️ Architecture
 
 ```
-📱 Telegram Bot → 🧠 Business Logic → 💾 PostgreSQL Database
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Telegram Bot  │────│  Go Application │────│   PostgreSQL    │
+│    (Frontend)   │    │   (Backend)     │    │   (Database)    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                               │
+                       ┌───────────────┐
+                       │  HTTP API     │
+                       │ (REST Endpoints)│
+                       └───────────────┘
 ```
 
-**Simple Flow:**
-1. User sends `/subscribe news`
-2. Bot saves subscription to database
-3. Bot automatically sends news updates
-4. User can `/unsubscribe` anytime
+## 🚀 Quick Start
 
----
+### Prerequisites
+- Go 1.21+
+- PostgreSQL 13+
+- Telegram Bot Token (get from [@BotFather](https://t.me/botfather))
 
-## 🎯 Bot Commands (Super Simple!)
+### 1. Environment Setup
 
-| Command | What It Does | Example |
-|---------|--------------|---------|
-| `/start` | 👋 Welcome message and setup | Just type `/start` |
-| `/help` | ❓ Get help and command list | When you're stuck |
-| `/types` | 📋 See all notification types | Shows: coinbase, news, weather... |
-| `/subscribe <type>` | ✅ Start getting notifications | `/subscribe coinbase` |
-| `/unsubscribe <type>` | ❌ Stop notifications | `/unsubscribe coinbase` |
-| `/list` | 📄 Show your subscriptions | See what you're subscribed to |
-
-### ✅ Current Status
-- **All commands working** ✅
-- **Subscription system functional** ✅  
-- **Parallel notification scheduling** ✅
-- **Rate limiting implemented** ✅
-- **Database integration complete** ✅
-
-### � Quick Examples
-```
-User: /subscribe price_alert
-Bot:  ✅ Successfully subscribed to Price Alerts notifications!
-      
-      Default settings:
-      • Currency: BTC
-      • Threshold: $50,000
-      • Interval: 5 minutes
-
-User: /list
-Bot:  � Your Active Subscriptions:
-      
-      🟢 Price Alerts - 5 min
-      🟢 Coinbase Alerts - 1 min
-
-User: /unsubscribe price_alert
-Bot:  ✅ Unsubscribed from news alerts
-```
-
----
-
-## ⚙️ Configuration Made Easy
-
-Create a `.env` file in the `app` folder:
-
-```bash
-# 🤖 Your Telegram Bot
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
-
-# 💾 Database Connection  
+Create `.env` file:
+```env
+# Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
-DB_USER=bot_user
-DB_PASSWORD=your_secure_password
+DB_USER=postgres
+DB_PASSWORD=your_password
 DB_NAME=go_messaging
+DB_SSLMODE=disable
 
-# 🔧 App Settings
+# Telegram Bot
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+
+# Server
 PORT=8080
-MODE=debug
-DEVELOPER_HOST=true
 ```
 
-> **💡 Pro Tip:** The bot automatically creates all database tables and sets up notification types on first run!
+### 2. Database Setup
 
----
+```sql
+-- Create database
+CREATE DATABASE go_messaging;
 
-## 🔔 Available Notification Types
+-- Run the schema
+\i app/database/schema.sql
 
-| Type | Code | What You Get | Development Schedule | Production Schedule |
-|------|------|--------------|---------------------|---------------------|
-| 💰 **Crypto Prices** | `coinbase` | Bitcoin, Ethereum prices | Every 1 minute | Every hour |
-| 📰 **Breaking News** | `news` | Important news updates | Every 2 minutes | Every 30 min |
-| 🌤️ **Weather** | `weather` | Weather forecasts | Every 4 minutes | Every 6 hours |
-| 🚨 **Price Alerts** | `price_alert` | Custom price thresholds | Every 5 minutes | Every 5 min |
-| 🔔 **Custom** | `custom` | Your custom notifications | Every 6 minutes | Every hour |
-
-**Example:** Type `/subscribe coinbase` to get crypto updates!
-
-### 🔧 Current Development Mode
-The bot is currently configured for **development/testing** with frequent notifications:
-- 🪙 **Coinbase**: Every 1 minute  
-- 📰 **News**: Every 2 minutes
-- 🌤️ **Weather**: Every 4 minutes
-- 🚨 **Price Alert**: Every 5 minutes
-- 🔔 **Custom**: Every 6 minutes
-
-> **Note:** Price alerts in development mode always send notifications regardless of threshold conditions for testing purposes.
-
----
-
-## 🚀 Switching from Development to Production
-
-The bot is currently configured for **development/testing** with frequent notifications. To switch to production:
-
-1. **Update notification intervals** in `cmd/main.go`:
-   ```go
-   notificationSchedule := map[string]int{
-       "coinbase":    60,  // Every hour (was 1 minute)
-       "news":        30,  // Every 30 minutes (was 2 minutes)
-       "weather":     360, // Every 6 hours (was 4 minutes)
-       "price_alert": 5,   // Every 5 minutes (unchanged)
-       "custom":      60,  // Every hour (was 6 minutes)
-   }
-   ```
-
-2. **Enable threshold checking** in `notification_dispatch_service.go`:
-   ```go
-   // Uncomment this production code:
-   if currentPrice >= threshold {
-       return fmt.Sprintf("🚨 Price Alert: %s\n\nCurrent price: $%.2f\nThreshold: $%.2f\n\nAlert triggered at %s",
-           currency, currentPrice, threshold, time.Now().Format("15:04 MST")), nil
-   }
-   return "", fmt.Errorf("price threshold not met")
-   ```
-
-3. **Remove development notifications** that always send regardless of conditions.
-
----
-
-## �️ For Developers
-
-### 📁 Project Structure (Clean & Organized)
-```
-app/
-├── 🚀 cmd/main.go              # Start here - main application
-├── ⚙️ config/                  # Configuration management
-├── 💾 database/                # Database setup & migrations
-├── 📦 entity/                  # Data models (User, Subscription, etc.)
-├── 🔄 repository/              # Database operations
-├── 🧠 service/                 # Business logic
-├── 🤖 telegram_bot_service.go  # Bot commands & responses
-└── 🔧 model/                   # Helpers (rate limiting, validation)
+-- Initialize with admin data
+\i init_database.sql
 ```
 
-### 🎯 Want to Add a New Notification Type?
+**Important**: Update the `telegram_user_id` values in `init_database.sql` with your actual Telegram User ID.
 
-**Super Easy! Just 3 steps:**
-
-1. **Add to database:** (runs automatically)
-   ```sql
-   INSERT INTO notification_types (code, name, description, default_interval_minutes) 
-   VALUES ('stocks', 'Stock Alerts', 'Stock price updates', 60);
-   ```
-
-2. **Add content generator:** (in `notification_dispatch_service.go`)
-   ```go
-   case "stocks":
-       return s.getStockContent(ctx, preferences)
-   ```
-
-3. **Add to scheduler:** (in `main.go`)
-   ```go
-   notificationSchedule := map[string]int{
-       "stocks": 120, // Every 2 hours
-       // ... existing types
-   }
-   ```
-
-**That's it!** Users can now use `/subscribe stocks`
-
-### 🧪 Testing
-```bash
-# Run all tests
-go test ./...
-
-# Test with race detection
-go test -race ./...
-
-# Build for production
-go build -o bot ./cmd
-```
-
----
-
-## 🚀 Deployment Options
-
-### 🐳 Docker (Recommended)
-
-**Prerequisites**: Docker and Docker Compose installed
+### 3. Installation & Run
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/your-username/go-messaging.git
-cd go-messaging
+cd app
+go mod download
+go run cmd/main.go
+```
 
-# 2. Configure environment
-cp .env.example .env
-# Edit .env and add your TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
+### 4. Create First Admin
 
-# 3. Start services (PostgreSQL + Go app)
+```bash
+# Method 1: HTTP API (with basic auth: admin/admin123)
+curl -u admin:admin123 -X POST http://localhost:8080/api/v1/admin/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "telegram_user_id": YOUR_TELEGRAM_USER_ID,
+    "username": "your_username",
+    "first_name": "Your Name"
+  }'
+
+# Method 2: Update init_database.sql with your Telegram User ID and re-run
+```
+
+## 📱 User Interface
+
+### For Regular Users
+
+**Start Registration:**
+```
+User: /start
+Bot: 🤖 Welcome to Go Messaging Bot!
+     
+     You need to register to receive notifications.
+     Click the button below to get started.
+     
+     [🚀 Start Registration]  [ℹ️ About]  [❓ Help]
+```
+
+**Approved User Menu:**
+```
+Bot: ✅ Welcome Back!
+     
+     👤 John Doe
+     🎉 You're approved to receive notifications!
+     
+     [🔔 Notifications]  [⚙️ Settings]
+     [📊 My Status]      [📱 Subscriptions]
+     [ℹ️ About]          [❓ Help]
+```
+
+### For Admins
+
+**Admin Panel:**
+```
+Admin: /admin
+Bot: 🔧 Admin Panel
+     
+     Welcome to the admin panel. Choose an option below:
+     
+     [📋 Pending Users]  [✅ Approved Users]
+     [📊 User Stats]     [🧹 Cleanup]
+```
+
+**Pending Users Management:**
+```
+Bot: 📋 Pending Users (3):
+     
+     👤 John Doe (@johndoe)
+     📅 Joined: 2025-01-15 10:30
+     🆔 ID: abc123...
+     
+     [✅ Approve]  [❌ Reject]
+     
+     👤 Jane Smith (@janesmith)
+     📅 Joined: 2025-01-15 11:15
+     🆔 ID: def456...
+     
+     [✅ Approve]  [❌ Reject]
+```
+
+## 🔌 API Endpoints
+
+### User Management
+```http
+GET    /api/v1/users                    # List all users
+GET    /api/v1/users/:id               # Get user by ID
+GET    /api/v1/users/telegram/:id      # Get user by Telegram ID
+POST   /api/v1/users                   # Create/update user
+PUT    /api/v1/users/:id               # Update user
+DELETE /api/v1/users/telegram/:id      # Delete user
+```
+
+### Admin Operations (🔐 Basic Auth Required)
+```http
+POST   /api/v1/admin/create                    # Create admin
+GET    /api/v1/admin/users/pending             # Get pending users
+GET    /api/v1/admin/users/approved            # Get approved users
+POST   /api/v1/admin/users/:id/approve         # Approve user
+POST   /api/v1/admin/users/:id/reject          # Reject user
+POST   /api/v1/admin/users/:id/disable         # Disable user
+POST   /api/v1/admin/users/:id/enable          # Enable user
+GET    /api/v1/admin/stats                     # Get user statistics
+POST   /api/v1/admin/cleanup                   # Cleanup old pending users
+```
+
+### Authentication
+All admin endpoints require HTTP Basic Authentication:
+- Username: `admin`
+- Password: `admin123` (change in production!)
+
+## 🐳 Docker Deployment
+
+### Using Docker Compose
+```bash
+# Start all services
 docker-compose up -d
 
-# 4. Check logs
-docker-compose logs -f go-messaging
+# View logs
+docker-compose logs -f
 
-# 5. Verify health
-curl http://localhost:8080/health
+# Stop services
+docker-compose down
 ```
 
-**What's included:**
-- ✅ PostgreSQL database with automatic schema setup
-- ✅ Go messaging application 
-- ✅ Health checks and restart policies
-- ✅ Persistent data storage
-- ✅ Network isolation
-
-### 📦 Binary
+### Manual Docker Build
 ```bash
-# Build
-go build -o go-messaging ./cmd
+# Build image
+docker build -t go-messaging .
 
-# Run
-./go-messaging
+# Run container
+docker run -d \
+  -p 8080:8080 \
+  -e TELEGRAM_BOT_TOKEN=your_token \
+  -e DB_HOST=your_db_host \
+  --name go-messaging \
+  go-messaging
 ```
 
-### ☁️ Cloud Deploy
-Works great on:
-- **Heroku** (with Heroku Postgres)
-- **AWS** (with RDS)
-- **Google Cloud** (with Cloud SQL)
-- **DigitalOcean** (with Managed Database)
+## 🔧 Configuration
 
----
+### Environment Variables
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_HOST` | Database host | `localhost` |
+| `DB_PORT` | Database port | `5432` |
+| `DB_USER` | Database user | `postgres` |
+| `DB_PASSWORD` | Database password | - |
+| `DB_NAME` | Database name | `go_messaging` |
+| `DB_SSLMODE` | SSL mode | `disable` |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | - |
+| `PORT` | HTTP server port | `8080` |
 
-## 🔐 Security & Performance
+### Database Tables
+- `users` - User information and approval status
+- `notification_types` - Available notification categories
+- `subscriptions` - User notification subscriptions
+- `notification_logs` - Sent notification history
+- `api_credentials` - HTTP API authentication
+- `app_config` - System configuration
 
-✅ **Rate Limiting** - Prevents spam  
-✅ **Input Validation** - Sanitizes all messages  
-✅ **SQL Injection Protection** - Uses prepared statements  
-✅ **Graceful Shutdown** - Safe restarts  
-✅ **Environment Variables** - No hardcoded secrets  
-✅ **Comprehensive Logging** - Track everything  
+## 📚 Usage Examples
 
----
+### Postman Collection
+Import `postman_collection.json` for ready-to-use API requests.
 
-## 💡 FAQ
+### OpenAPI Documentation
+View `openapi.yaml` for complete API specification.
 
-<details>
-<summary><strong>❓ How do I get a Telegram bot token?</strong></summary>
+### Common Workflows
 
-1. Open Telegram and search for [@BotFather](https://t.me/botfather)
-2. Send `/newbot` command
-3. Follow the instructions to name your bot
-4. Copy the token (format: `123456:ABC-DEF1234...`)
-5. Paste it in your `.env` file
-
-</details>
-
-<details>
-<summary><strong>❓ Can I add my own notification types?</strong></summary>
-
-Yes! It's super easy:
-1. Add your notification type to the database
-2. Create a content generator function
-3. Add it to the scheduler
-
-See the "For Developers" section above for detailed steps.
-
-</details>
-
-<details>
-<summary><strong>❓ How do I customize notification intervals?</strong></summary>
-
-Edit the `main.go` file and modify the `notificationSchedule` map:
-```go
-notificationSchedule := map[string]int{
-    "coinbase": 30,  // Every 30 minutes instead of 60
-    "news":     15,  // Every 15 minutes instead of 30
-}
+**1. User Registration Flow:**
+```
+User clicks /start → Registers → Waits for approval → Gets notified when approved
 ```
 
-</details>
+**2. Admin Approval Flow:**
+```
+Admin uses /admin → Views pending users → Approves/rejects with buttons
+```
 
-<details>
-<summary><strong>❓ Is this production ready?</strong></summary>
+**3. User Management:**
+```
+Admin views approved users → Can disable/enable as needed
+```
 
-Yes! The bot includes:
-- ✅ Rate limiting and spam protection
-- ✅ Database connection pooling
-- ✅ Graceful shutdown handling
-- ✅ Comprehensive error logging
-- ✅ Input validation and sanitization
+## 🔒 Security Features
 
-</details>
+- **Role-based Access Control**: Users vs Admins
+- **HTTP Basic Authentication**: Secure API access
+- **Rate Limiting**: Prevent spam and abuse
+- **Input Validation**: Sanitize all inputs
+- **Auto-cleanup**: Remove stale data automatically
+- **Audit Logging**: Track all admin actions
 
----
+## 🚧 Development
+
+### Project Structure
+```
+├── app/
+│   ├── cmd/main.go              # Application entry point
+│   ├── config/                  # Configuration management
+│   ├── database/                # Database setup and migrations
+│   ├── delivery/http/           # HTTP handlers and middleware
+│   ├── entity/                  # Data models
+│   ├── internal/scheduler/      # Background jobs
+│   ├── model/                   # Telegram bot models
+│   ├── repository/              # Data access layer
+│   ├── service/                 # Business logic
+│   └── util/                    # Utility functions
+├── migrations/                  # Database migrations
+├── init_database.sql           # Database initialization
+├── openapi.yaml               # API documentation
+├── postman_collection.json    # Postman collection
+└── docker-compose.yaml        # Docker setup
+```
+
+### Adding New Features
+1. Update database schema in `app/database/schema.sql`
+2. Add/update entities in `app/entity/`
+3. Implement repository methods in `app/repository/`
+4. Add business logic in `app/service/`
+5. Create HTTP handlers in `app/delivery/http/`
+6. Update routes in `router.go`
+7. Add Telegram bot commands/callbacks as needed
+
+### Testing
+```bash
+# Run tests
+go test ./...
+
+# Run with coverage
+go test -cover ./...
+```
+
+## 🎯 Use Cases
+
+This system is perfect for:
+- **Company Internal Notifications**: Employee alerts and updates
+- **Community Management**: Member approval and notifications
+- **Event Notifications**: Conference or meetup updates
+- **System Monitoring**: Alert administrators about system events
+- **Customer Support**: Managed notification system for customers
+- **Educational Platforms**: Student and teacher notifications
 
 ## 🤝 Contributing
 
-We love contributions! Here's how to help:
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
 
-1. **🍴 Fork** the repository
-2. **🌟 Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **💾 Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **🚀 Push** to the branch (`git push origin feature/amazing-feature`)
-5. **📝 Open** a Pull Request
+### Contribution Guidelines
+- Follow Go best practices
+- Add tests for new features
+- Update documentation
+- Use conventional commit messages
+- Ensure backwards compatibility
 
-### 🎯 Ideas for Contributions
-- Add new notification types (stocks, sports, etc.)
-- Integrate real APIs (replace mock data)
-- Add user preference management
-- Create admin dashboard
-- Add Docker deployment scripts
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Documentation**: Check the `ADMIN_SYSTEM_README.md` for detailed admin features
+- **Issues**: Report bugs on GitHub Issues
+- **API Docs**: Use the OpenAPI specification in `openapi.yaml`
+- **Postman**: Import the collection for API testing
+
+## 🗺️ Roadmap
+
+- [ ] **Multi-language Support**: i18n for different languages
+- [ ] **Webhook Support**: Generic webhook notifications
+- [ ] **Template System**: Customizable message templates
+- [ ] **Scheduled Notifications**: Cron-based message scheduling
+- [ ] **Analytics Dashboard**: Web-based admin dashboard
+- [ ] **Message Threading**: Conversation management
+- [ ] **File Attachments**: Support for images and documents
+- [ ] **Custom Notification Types**: User-defined notification categories
 
 ---
 
-## � License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Credits & Thanks
-
-Built with these amazing tools:
-
-- 🤖 [go-telegram/bot](https://github.com/go-telegram/bot) - Telegram Bot API
-- 🗄️ [GORM](https://gorm.io/) - Go ORM library  
-- 🐘 [PostgreSQL](https://www.postgresql.org/) - Database system
-- 🚀 [Go](https://golang.org/) - Programming language
-
----
-
-## 🎉 Ready to Start?
-
-```bash
-git clone https://github.com/your-repo/go-messaging.git
-cd go-messaging/app
-cp .env.example .env
-# Edit .env with your bot token
-go run ./cmd
-```
-
-**Your notification bot is now live! 🚀**
-
-Need help? Open an issue or check our [documentation](docs/) for more details.
+**Built with ❤️ in Go** | **Ready for Production** | **Fully Documented** | **Docker Ready**

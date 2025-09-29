@@ -13,12 +13,22 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(255),
     language_code VARCHAR(10),
     is_bot BOOLEAN DEFAULT FALSE,
+    role VARCHAR(20) DEFAULT 'user', -- 'user', 'admin'
+    approval_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'approved', 'rejected', 'disabled'
+    approved_by UUID,
+    approved_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    FOREIGN KEY (approved_by) REFERENCES users(id)
 );
 
 -- Create unique index for telegram_user_id (GORM compatible)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_telegram_user_id ON users(telegram_user_id);
+
+-- Create indexes for new user fields
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_approval_status ON users(approval_status);
+CREATE INDEX IF NOT EXISTS idx_users_approved_by ON users(approved_by);
 
 -- Notification types table (static reference data)
 CREATE TABLE IF NOT EXISTS notification_types (
@@ -99,3 +109,34 @@ CREATE TRIGGER update_notification_types_updated_at BEFORE UPDATE ON notificatio
 
 CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- API credentials table for basic auth
+CREATE TABLE IF NOT EXISTS api_credentials (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'admin',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_used_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Create index for api_credentials
+CREATE INDEX IF NOT EXISTS idx_api_credentials_username ON api_credentials(username);
+CREATE INDEX IF NOT EXISTS idx_api_credentials_active ON api_credentials(is_active);
+
+-- Create function to cleanup pending users older than 6 hours
+CREATE OR REPLACE FUNCTION cleanup_pending_users()
+RETURNS INTEGER AS $$
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    DELETE FROM users 
+    WHERE approval_status = 'pending' 
+    AND created_at < NOW() - INTERVAL '6 hours';
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;

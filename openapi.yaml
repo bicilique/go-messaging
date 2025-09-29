@@ -1,0 +1,546 @@
+openapi: 3.0.3
+info:
+  title: Go Messaging Bot API
+  description: |
+    Universal notification system with Telegram bot integration, admin approval system, and button-based user interface.
+    
+    ## Features
+    - 🤖 Telegram Bot with inline keyboards
+    - 👑 Admin approval workflow  
+    - 🔐 HTTP Basic Authentication
+    - 📱 Button-based UI (no command typing)
+    - ⏰ Auto-cleanup of pending users
+    - 📊 Real-time statistics
+    
+    ## Authentication
+    Admin endpoints require HTTP Basic Authentication:
+    - Username: `admin`
+    - Password: `admin123` (change in production)
+    
+    ## Getting Started
+    1. Create admin user via `/api/v1/admin/create`
+    2. Users register via Telegram bot `/start`
+    3. Admins approve users via Telegram `/admin` or API
+    
+  version: 2.0.0
+  contact:
+    name: Go Messaging Bot Support
+    url: https://github.com/your-repo/go-messaging
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Development server
+  - url: https://your-domain.com/api/v1
+    description: Production server
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic Authentication for admin endpoints
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        telegram_user_id:
+          type: integer
+          format: int64
+          description: Telegram user ID
+        username:
+          type: string
+          nullable: true
+          description: Telegram username
+        first_name:
+          type: string
+          nullable: true
+          description: User's first name
+        last_name:
+          type: string
+          nullable: true
+          description: User's last name
+        language_code:
+          type: string
+          nullable: true
+          description: User's language code
+        is_bot:
+          type: boolean
+          description: Whether the user is a bot
+        role:
+          type: string
+          enum: [user, admin]
+          description: User role
+        approval_status:
+          type: string
+          enum: [pending, approved, rejected, disabled]
+          description: User approval status
+        approved_by:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of admin who approved the user
+        approved_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the user was approved
+        created_at:
+          type: string
+          format: date-time
+          description: When the user was created
+        updated_at:
+          type: string
+          format: date-time
+          description: When the user was last updated
+
+    CreateAdminRequest:
+      type: object
+      required:
+        - telegram_user_id
+      properties:
+        telegram_user_id:
+          type: integer
+          format: int64
+          description: Telegram user ID of the new admin
+        username:
+          type: string
+          description: Username of the new admin
+        first_name:
+          type: string
+          description: First name of the new admin
+        last_name:
+          type: string
+          description: Last name of the new admin
+
+    UserStats:
+      type: object
+      properties:
+        pending:
+          type: integer
+          format: int64
+          description: Number of pending users
+        approved:
+          type: integer
+          format: int64
+          description: Number of approved users
+        rejected:
+          type: integer
+          format: int64
+          description: Number of rejected users
+        disabled:
+          type: integer
+          format: int64
+          description: Number of disabled users
+        admins:
+          type: integer
+          format: int64
+          description: Number of admin users
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: string
+          description: Detailed error information
+
+    Success:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Success message
+
+  parameters:
+    UserIdPath:
+      name: userID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: User ID
+
+    AdminIdQuery:
+      name: admin_id
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: ID of the admin performing the action
+
+    LimitQuery:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 50
+        minimum: 1
+        maximum: 100
+      description: Maximum number of results to return
+
+paths:
+  # User Management Endpoints
+  /users:
+    get:
+      summary: List all users
+      description: Retrieve a paginated list of all users
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/{id}:
+    get:
+      summary: Get user by ID
+      description: Retrieve a specific user by their ID
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Admin Management Endpoints
+  /admin/create:
+    post:
+      summary: Create a new admin
+      description: Create a new admin user or promote existing user to admin
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdminRequest'
+            example:
+              telegram_user_id: 123456789
+              username: "admin_user"
+              first_name: "Admin"
+              last_name: "User"
+      responses:
+        '201':
+          description: Admin created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Admin created successfully"
+                  admin:
+                    type: object
+                    properties:
+                      telegram_user_id:
+                        type: integer
+                        format: int64
+                      username:
+                        type: string
+                      first_name:
+                        type: string
+                      last_name:
+                        type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to create admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/users/pending:
+    get:
+      summary: Get pending users
+      description: Retrieve all users awaiting admin approval
+      security:
+        - basicAuth: []
+      responses:
+        '200':
+          description: List of pending users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  count:
+                    type: integer
+                    description: Number of pending users
+        '500':
+          description: Failed to get pending users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/users/approved:
+    get:
+      summary: Get approved users
+      description: Retrieve approved users with optional limit
+      parameters:
+        - $ref: '#/components/parameters/LimitQuery'
+      responses:
+        '200':
+          description: List of approved users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  count:
+                    type: integer
+                    description: Number of approved users returned
+        '400':
+          description: Invalid limit parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to get approved users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/users/{userID}/approve:
+    post:
+      summary: Approve a user
+      description: Approve a pending user registration
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/AdminIdQuery'
+      responses:
+        '200':
+          description: User approved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User approved successfully"
+                  user_id:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid user ID or admin ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to approve user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/users/{userID}/reject:
+    post:
+      summary: Reject a user
+      description: Reject a pending user registration
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/AdminIdQuery'
+      responses:
+        '200':
+          description: User rejected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User rejected successfully"
+                  user_id:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid user ID or admin ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to reject user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/users/{userID}/disable:
+    post:
+      summary: Disable a user
+      description: Disable an approved user
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/AdminIdQuery'
+      responses:
+        '200':
+          description: User disabled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User disabled successfully"
+                  user_id:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid user ID or admin ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to disable user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/users/{userID}/enable:
+    post:
+      summary: Enable a user
+      description: Re-enable a disabled user
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/AdminIdQuery'
+      responses:
+        '200':
+          description: User enabled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User enabled successfully"
+                  user_id:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid user ID or admin ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to enable user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/stats:
+    get:
+      summary: Get user statistics
+      description: Retrieve statistics about user counts by status and role
+      responses:
+        '200':
+          description: User statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stats:
+                    $ref: '#/components/schemas/UserStats'
+        '500':
+          description: Failed to get user stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/cleanup:
+    post:
+      summary: Cleanup pending users
+      description: Remove pending users older than 6 hours
+      responses:
+        '200':
+          description: Cleanup completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Cleanup completed successfully"
+                  deleted_count:
+                    type: integer
+                    description: Number of users deleted
+        '500':
+          description: Failed to cleanup pending users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+tags:
+  - name: Users
+    description: User management operations
+  - name: Admin
+    description: Admin operations for user approval and management

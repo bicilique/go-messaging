@@ -41,7 +41,7 @@ func main() {
 	defer cancel()
 
 	// Setup HTTP server
-	httpServer := setupHTTPServer(services)
+	httpServer := setupHTTPServer(services, db)
 
 	// Setup graceful shutdown
 	setupGracefulShutdown(cancel)
@@ -49,9 +49,13 @@ func main() {
 	// Start notification scheduler
 	go startNotificationScheduler(ctx, services.NotificationDispatch)
 
+	// Start cleanup scheduler
+	go startCleanupScheduler(ctx, services.Admin)
+
 	// Start Telegram bot
 	go func() {
 		log.Printf("🚀 Starting Telegram Bot (Token: %s...)", cfg.TELEGRAM_BOT_TOKEN[:10])
+		services.TelegramBot.CheckAdminServices() // Debug check
 		services.TelegramBot.StartPolling(ctx)
 	}()
 
@@ -115,8 +119,8 @@ type Services struct {
 	NotificationType     service.NotificationTypeService
 	Subscription         service.SubscriptionService
 	NotificationLog      service.NotificationLogService
+	Admin                service.AdminServiceInterface
 	TelegramBot          *service.TelegramBotService
-	TelegramService      *service.TelegramService
 	NotificationDispatch service.NotificationDispatchService
 }
 
@@ -132,16 +136,17 @@ func initializeServices(repos *Repositories, cfg *config.Configurations) *Servic
 	)
 	notificationLogService := service.NewNotificationLogService(repos.NotificationLog)
 
+	// Create admin service
+	adminService := service.NewAdminService(repos.User)
+
 	// Create the main Telegram bot service
 	telegramBotService := service.NewTelegramBotService(
 		cfg.TELEGRAM_BOT_TOKEN,
 		userService,
 		subscriptionService,
 		notificationTypeService,
+		adminService,
 	)
-
-	// Create the Telegram service for HTTP handlers
-	telegramService := service.NewTelegramService(cfg.TELEGRAM_BOT_TOKEN)
 
 	notificationDispatchService := service.NewNotificationDispatchService(
 		subscriptionService,
@@ -154,14 +159,14 @@ func initializeServices(repos *Repositories, cfg *config.Configurations) *Servic
 		NotificationType:     notificationTypeService,
 		Subscription:         subscriptionService,
 		NotificationLog:      notificationLogService,
+		Admin:                adminService,
 		TelegramBot:          telegramBotService,
-		TelegramService:      telegramService,
 		NotificationDispatch: notificationDispatchService,
 	}
 }
 
 // setupHTTPServer creates and configures the HTTP server
-func setupHTTPServer(services *Services) *http.Server {
+func setupHTTPServer(services *Services, db *database.Database) *http.Server {
 	router := gin.Default()
 
 	// Add middleware
@@ -170,11 +175,15 @@ func setupHTTPServer(services *Services) *http.Server {
 
 	// Initialize handlers
 	userHandler := httpDelivery.NewUserHandler(services.User)
+	adminHandler := httpDelivery.NewAdminHandler(services.Admin)
+	authMiddleware := httpDelivery.NewBasicAuthMiddleware(db.Connection)
 
 	// Setup routes
 	routeConfig := &httpDelivery.RouteConfig{
-		Router:      router,
-		UserHandler: userHandler,
+		Router:         router,
+		UserHandler:    userHandler,
+		AdminHandler:   adminHandler,
+		AuthMiddleware: authMiddleware,
 	}
 	routeConfig.Setup()
 
@@ -212,6 +221,18 @@ func startHTTPServer(ctx context.Context, server *http.Server) {
 func startNotificationScheduler(ctx context.Context, dispatchService service.NotificationDispatchService) {
 	notificationScheduler := scheduler.NewNotificationScheduler(dispatchService)
 	notificationScheduler.Start(ctx)
+}
+
+// startCleanupScheduler starts the cleanup scheduling service
+func startCleanupScheduler(ctx context.Context, adminService service.AdminServiceInterface) {
+	cleanupScheduler := scheduler.NewCleanupScheduler(adminService)
+	cleanupScheduler.Start()
+
+	// Stop scheduler when context is cancelled
+	go func() {
+		<-ctx.Done()
+		cleanupScheduler.Stop()
+	}()
 }
 
 // setupGracefulShutdown sets up signal handling for graceful shutdown
